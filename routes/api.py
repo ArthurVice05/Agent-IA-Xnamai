@@ -12,3 +12,14 @@ def chat(mensagem: str):
         "pergunta": mensagem,
         "resposta": resposta
     }
+
+@router.post("/webhook")
+async def webhook(data: dict):
+
+    mensagem = data.get("mensagem", "")
+
+    resposta = perguntar_ia(mensagem)
+
+    return {
+        "resposta": resposta
+    }
