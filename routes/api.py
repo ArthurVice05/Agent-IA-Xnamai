@@ -1,11 +1,23 @@
-from fastapi import APIRouter
-
-router = APIRouter()
-
 @router.post("/webhook")
 async def webhook(data: dict):
 
-    print("WEBHOOK RECEBIDO:")
-    print(data)
+    try:
+        mensagem = data["text"]["message"]
 
-    return {"status": "ok"}
+        print("Mensagem recebida:", mensagem)
+
+        resposta_ia = perguntar_ia(mensagem)
+
+        print("Resposta IA:", resposta_ia)
+
+        return {
+            "status": "ok",
+            "resposta": resposta_ia
+        }
+
+    except Exception as e:
+        print("ERRO:", e)
+
+        return {
+            "status": "erro"
+        }
