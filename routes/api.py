@@ -14,26 +14,36 @@ async def webhook(data: dict):
         print("WEBHOOK RECEBIDO:")
         print(data)
 
-        # Ignora grupos
-        if data.get("isGroup"):
-            return {"status": "grupo_ignorado"}
+        # Ignorar apenas newsletters
+        if data.get("isNewsletter"):
+            return {"status": "newsletter_ignorada"}
 
-        mensagem = data["text"]["message"]
-        numero = data["phone"]
+        numero = data.get("phone")
 
-        print("Mensagem recebida:", mensagem)
-        print("Número:", numero)
+        if not numero:
+            print("Número não encontrado")
+            return {"status": "sem_numero"}
 
-        # Cria histórico do cliente
+        texto = ""
+
+        if "text" in data:
+            texto = data["text"].get("message", "")
+
+        if not texto:
+            print("Mensagem sem texto")
+            return {"status": "sem_texto"}
+
+        print("Mensagem recebida:", texto)
+
         if numero not in historico_conversas:
             historico_conversas[numero] = []
 
         historico_conversas[numero].append(
-            f"Cliente: {mensagem}"
+            f"Cliente: {texto}"
         )
 
         contexto = "\n".join(
-            historico_conversas[numero]
+            historico_conversas[numero][-20:]
         )
 
         print("ANTES DA IA")
@@ -56,8 +66,6 @@ async def webhook(data: dict):
 
         print("RESULTADO ENVIO:")
         print(resultado)
-
-        print("MENSAGEM ENVIADA")
 
         return {
             "status": "ok"
