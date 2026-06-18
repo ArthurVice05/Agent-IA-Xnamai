@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from services.openai_service import perguntar_ia
+from services.zapi_service import enviar_mensagem
 
 router = APIRouter()
 
@@ -14,7 +15,9 @@ async def webhook(data: dict):
         if data.get("isGroup"):
             return {"status": "grupo_ignorado"}
 
-        mensagem = data.get("text", {}).get("message", "")
+        mensagem = data["text"]["message"]
+
+        numero = data["phone"]
 
         print("Mensagem recebida:", mensagem)
 
@@ -22,14 +25,15 @@ async def webhook(data: dict):
 
         print("Resposta IA:", resposta_ia)
 
+        enviar_mensagem(numero, resposta_ia)
+
         return {
-            "status": "ok",
-            "resposta": resposta_ia
+            "status": "ok"
         }
 
     except Exception as e:
 
-        print("ERRO:", str(e))
+        print("ERRO:", e)
 
         return {
             "status": "erro"
