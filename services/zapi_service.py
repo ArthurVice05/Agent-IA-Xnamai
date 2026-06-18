@@ -5,6 +5,11 @@ TOKEN = "4C2EDD29BAA28D8A82485C7B"
 
 def enviar_mensagem(numero, mensagem):
 
+    print("=== ENVIANDO ZAPI ===")
+    print("NUMERO:", numero)
+    print("TOKEN:", TOKEN)
+    print("INSTANCE:", INSTANCE_ID)
+
     url = f"https://api.z-api.io/instances/{INSTANCE_ID}/token/{TOKEN}/send-text"
 
     payload = {
@@ -19,3 +24,5 @@ def enviar_mensagem(numero, mensagem):
 
     print("STATUS ZAPI:", response.status_code)
     print("RESPOSTA ZAPI:", response.text)
+
+    return response.text
