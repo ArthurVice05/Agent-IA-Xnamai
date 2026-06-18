@@ -1,7 +1,7 @@
 import requests
 
-INSTANCE_ID = "3F4CB317B66E2245E7E58645B9B7D1FC"
-TOKEN = "4C2EDD29BAA28D8A82485C7B"
+INSTANCE_ID = "SEU_ID"
+TOKEN = "SEU_TOKEN"
 
 def enviar_mensagem(numero, mensagem):
 
@@ -12,4 +12,7 @@ def enviar_mensagem(numero, mensagem):
         "message": mensagem
     }
 
-    requests.post(url, json=payload)
+    response = requests.post(url, json=payload)
+
+    print("STATUS ZAPI:", response.status_code)
+    print("RESPOSTA ZAPI:", response.text)
