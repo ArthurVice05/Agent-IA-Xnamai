@@ -14,36 +14,32 @@ async def webhook(data: dict):
         print("WEBHOOK RECEBIDO:")
         print(data)
 
-        # Ignorar apenas newsletters
-        if data.get("isNewsletter"):
-            return {"status": "newsletter_ignorada"}
+        # Ignora grupos
+        if data.get("isGroup"):
+            return {"status": "grupo_ignorado"}
 
-        numero = data.get("phone")
+        # Ignora mensagens enviadas pelo próprio número
+        if data.get("fromMe"):
+            return {"status": "mensagem_propria"}
 
-        if not numero:
-            print("Número não encontrado")
-            return {"status": "sem_numero"}
+        mensagem = data["text"]["message"]
+        numero = data["phone"]
 
-        texto = ""
+        print("Mensagem recebida:", mensagem)
 
-        if "text" in data:
-            texto = data["text"].get("message", "")
-
-        if not texto:
-            print("Mensagem sem texto")
-            return {"status": "sem_texto"}
-
-        print("Mensagem recebida:", texto)
-
+        # Cria histórico do cliente
         if numero not in historico_conversas:
             historico_conversas[numero] = []
 
         historico_conversas[numero].append(
-            f"Cliente: {texto}"
+            f"Cliente: {mensagem}"
         )
 
+        # Mantém apenas as últimas 20 mensagens
+        historico_conversas[numero] = historico_conversas[numero][-20:]
+
         contexto = "\n".join(
-            historico_conversas[numero][-20:]
+            historico_conversas[numero]
         )
 
         print("ANTES DA IA")
@@ -59,13 +55,10 @@ async def webhook(data: dict):
 
         print("ANTES DE ENVIAR")
 
-        resultado = enviar_mensagem(
+        enviar_mensagem(
             numero,
             resposta_ia
         )
-
-        print("RESULTADO ENVIO:")
-        print(resultado)
 
         return {
             "status": "ok"
@@ -73,10 +66,9 @@ async def webhook(data: dict):
 
     except Exception as e:
 
-        print("ERRO NO WEBHOOK:")
-        print(str(e))
+        print("ERRO:", str(e))
 
         return {
             "status": "erro",
-            "erro": str(e)
+            "mensagem": str(e)
         }

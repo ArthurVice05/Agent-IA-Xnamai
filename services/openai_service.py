@@ -11,7 +11,7 @@ client = OpenAI(
 def perguntar_ia(mensagem):
 
     resposta = client.responses.create(
-        model="gpt-5-mini",
+        model="gpt-5.5",
         instructions="""
 Você é a assistente virtual oficial da Xnamai.
 
