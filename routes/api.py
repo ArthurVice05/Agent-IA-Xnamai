@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-from services.openai_service import perguntar_ia
 
 router = APIRouter()
 
