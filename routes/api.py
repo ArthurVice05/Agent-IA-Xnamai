@@ -4,11 +4,10 @@ from services.zapi_service import enviar_mensagem
 
 router = APIRouter()
 
+historico_conversas = {}
+
 @router.post("/webhook")
 async def webhook(data: dict):
-
-    print("WEBHOOK RECEBIDO:")
-    print(data)
 
     try:
 
@@ -16,14 +15,26 @@ async def webhook(data: dict):
             return {"status": "grupo_ignorado"}
 
         mensagem = data["text"]["message"]
-
         numero = data["phone"]
 
         print("Mensagem recebida:", mensagem)
 
-        resposta_ia = perguntar_ia(mensagem)
+        if numero not in historico_conversas:
+            historico_conversas[numero] = []
 
-        print("Resposta IA:", resposta_ia)
+        historico_conversas[numero].append(
+            f"Cliente: {mensagem}"
+        )
+
+        contexto = "\n".join(
+            historico_conversas[numero]
+        )
+
+        resposta_ia = perguntar_ia(contexto)
+
+        historico_conversas[numero].append(
+            f"IA: {resposta_ia}"
+        )
 
         enviar_mensagem(numero, resposta_ia)
 
