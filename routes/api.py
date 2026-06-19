@@ -1,10 +1,17 @@
 from fastapi import APIRouter
+
 from services.openai_service import perguntar_ia
 from services.zapi_service import enviar_mensagem
 
+from services.supabase_service import (
+    buscar_cliente,
+    criar_cliente,
+    salvar_mensagem,
+    buscar_historico
+)
+
 router = APIRouter()
 
-historico_conversas = {}
 
 @router.post("/webhook")
 async def webhook(data: dict):
@@ -27,20 +34,39 @@ async def webhook(data: dict):
 
         print("Mensagem recebida:", mensagem)
 
-        # Cria histórico do cliente
-        if numero not in historico_conversas:
-            historico_conversas[numero] = []
+        # Procura cliente
+        cliente = buscar_cliente(numero)
 
-        historico_conversas[numero].append(
-            f"Cliente: {mensagem}"
+        print("CLIENTE ENCONTRADO:", cliente)
+
+        # Cria cliente se não existir
+        if not cliente:
+            cliente = criar_cliente(numero)
+
+        cliente_id = cliente["id"]
+
+        print("CLIENTE ID:", cliente_id)
+
+        # Salva mensagem do cliente
+        salvar_mensagem(
+            cliente_id,
+            "cliente",
+            mensagem
         )
 
-        # Mantém apenas as últimas 20 mensagens
-        historico_conversas[numero] = historico_conversas[numero][-20:]
+        print("Mensagem salva:", mensagem)
 
-        contexto = "\n".join(
-            historico_conversas[numero]
-        )
+        # Busca histórico completo
+        historico = buscar_historico(cliente_id)
+
+        contexto = ""
+
+        for msg in historico:
+
+            if msg["tipo"] == "cliente":
+                contexto += f"Cliente: {msg['mensagem']}\n"
+            else:
+                contexto += f"IA: {msg['mensagem']}\n"
 
         print("ANTES DA IA")
 
@@ -49,9 +75,13 @@ async def webhook(data: dict):
         print("DEPOIS DA IA")
         print("Resposta IA:", resposta_ia)
 
-        historico_conversas[numero].append(
-            f"IA: {resposta_ia}"
+        # Salva resposta da IA
+        salvar_mensagem(
+            cliente_id,
+            "ia",
+            resposta_ia
         )
+        print("Resposta IA salva:", resposta_ia)
 
         print("ANTES DE ENVIAR")
 
