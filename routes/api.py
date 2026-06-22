@@ -22,7 +22,7 @@ async def webhook(data: dict):
         print("WEBHOOK RECEBIDO:")
         print(data)
 
-        # UltraMsg envia vários tipos de eventos
+        # Verifica se veio evento válido
         if "data" not in data:
             return {"status": "evento_ignorado"}
 
@@ -31,6 +31,7 @@ async def webhook(data: dict):
         numero = evento.get("from")
         mensagem = evento.get("body")
 
+        # Ignora eventos sem mensagem
         if not numero or not mensagem:
             return {"status": "sem_mensagem"}
 
@@ -57,9 +58,12 @@ async def webhook(data: dict):
             mensagem
         )
 
+        # Atualiza JSON do histórico
+        atualizar_historico_json(cliente_id)
+
         print("Mensagem salva")
 
-        # Busca histórico
+        # Busca histórico completo
         historico = buscar_historico(cliente_id)
 
         contexto = ""
@@ -83,6 +87,9 @@ async def webhook(data: dict):
             "ia",
             resposta_ia
         )
+
+        # Atualiza JSON novamente
+        atualizar_historico_json(cliente_id)
 
         print("Resposta salva")
 
