@@ -23,7 +23,6 @@ async def webhook(data: dict):
         print("WEBHOOK RECEBIDO:")
         print(data)
 
-        # Verifica se veio evento válido
         if "data" not in data:
             return {"status": "evento_ignorado"}
 
@@ -32,19 +31,15 @@ async def webhook(data: dict):
         numero = evento.get("from")
         mensagem = evento.get("body")
 
-        # Ignora eventos sem mensagem
         if not numero or not mensagem:
             return {"status": "sem_mensagem"}
 
         print("Número:", numero)
         print("Mensagem:", mensagem)
 
-        # Busca cliente
+        # Buscar cliente
         cliente = buscar_cliente(numero)
 
-        print("CLIENTE ENCONTRADO:", cliente)
-
-        # Cria cliente se não existir
         if not cliente:
             cliente = criar_cliente(numero)
 
@@ -52,7 +47,7 @@ async def webhook(data: dict):
 
         print("CLIENTE ID:", cliente_id)
 
-        # Salva mensagem do cliente
+        # Salvar mensagem do cliente
         salvar_mensagem(
             cliente_id,
             "cliente",
@@ -61,11 +56,9 @@ async def webhook(data: dict):
 
         atualizar_historico_json(cliente_id)
 
-        print("Mensagem salva")
-
-        # ==================================
+        # =========================
         # HISTÓRICO
-        # ==================================
+        # =========================
 
         historico = buscar_historico(cliente_id)
 
@@ -78,36 +71,50 @@ async def webhook(data: dict):
             else:
                 historico_texto += f"Atendente: {msg['mensagem']}\n"
 
-        # ==================================
+        # =========================
         # PRODUTOS
-        # ==================================
+        # =========================
 
         produtos = buscar_produtos()
 
         print("========== PRODUTOS ==========")
         print(produtos)
-        print("TOTAL PRODUTOS:", len(produtos))
-        print("==============================")
+
+        if not produtos:
+            print("NENHUM PRODUTO ENCONTRADO")
+        else:
+            print(f"TOTAL PRODUTOS: {len(produtos)}")
 
         catalogo = ""
 
         for produto in produtos:
 
             catalogo += f"""
-Nome: {produto['nome']}
-Categoria: {produto['categoria']}
-Preço: R$ {produto['preco']}
-Estoque: {produto['estoque']}
-Descrição: {produto['descricao']}
+Nome: {produto.get('nome', '')}
+Categoria: {produto.get('categoria', '')}
+Preço: R$ {produto.get('preco', '')}
+Estoque: {produto.get('estoque', '')}
+Descrição: {produto.get('descricao', '')}
 
 """
 
-        # ==================================
-        # CONTEXTO FINAL
-        # ==================================
+        print("========== CATÁLOGO ==========")
+        print(catalogo)
+
+        # =========================
+        # CONTEXTO DA IA
+        # =========================
 
         contexto_final = f"""
-Você é uma atendente da Xnamai.
+ATENÇÃO:
+
+Os produtos abaixo existem no banco de dados da Xnamai.
+
+Nunca diga que não encontrou produtos sem verificar o catálogo.
+
+CATÁLOGO:
+
+{catalogo}
 
 HISTÓRICO DA CONVERSA:
 
@@ -117,34 +124,28 @@ MENSAGEM ATUAL DO CLIENTE:
 
 {mensagem}
 
-CATÁLOGO DE PRODUTOS DA XNAMAI:
-
-{catalogo}
-
 REGRAS:
 
-- Utilize SOMENTE os produtos cadastrados no catálogo.
-- Quando encontrar um produto relacionado ao pedido do cliente, informe:
-  Nome, preço, descrição e estoque.
-- Nunca diga que não existem produtos sem antes consultar o catálogo.
-- Se o cliente pedir um fone, procure produtos da categoria Audio.
-- Se o cliente pedir caixa de som, procure produtos da categoria Audio.
+- Utilize apenas os produtos do catálogo.
+- Informe nome, preço, descrição e estoque.
+- Nunca invente produtos.
+- Nunca invente preços.
+- Nunca invente estoque.
 """
 
-        print("========== CONTEXTO FINAL ==========")
+        print("========== CONTEXTO ==========")
         print(contexto_final)
-        print("====================================")
 
-        # ==================================
+        # =========================
         # IA
-        # ==================================
+        # =========================
 
         resposta_ia = perguntar_ia(contexto_final)
 
         print("RESPOSTA IA:")
         print(resposta_ia)
 
-        # Salva resposta
+        # Salvar resposta da IA
         salvar_mensagem(
             cliente_id,
             "ia",
@@ -153,16 +154,16 @@ REGRAS:
 
         atualizar_historico_json(cliente_id)
 
-        # ==================================
+        # =========================
         # WHATSAPP
-        # ==================================
+        # =========================
 
         enviar_mensagem(
             numero,
             resposta_ia
         )
 
-        print("Mensagem enviada para WhatsApp")
+        print("Mensagem enviada")
 
         return {
             "status": "ok"
