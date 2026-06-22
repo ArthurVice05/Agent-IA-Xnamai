@@ -39,7 +39,7 @@ async def webhook(data: dict):
         print("Número:", numero)
         print("Mensagem:", mensagem)
 
-        # Procura cliente
+        # Busca cliente
         cliente = buscar_cliente(numero)
 
         print("CLIENTE ENCONTRADO:", cliente)
@@ -64,7 +64,10 @@ async def webhook(data: dict):
 
         print("Mensagem salva")
 
-        # Busca histórico completo
+        # =========================
+        # HISTÓRICO DA CONVERSA
+        # =========================
+
         historico = buscar_historico(cliente_id)
 
         contexto = ""
@@ -74,29 +77,55 @@ async def webhook(data: dict):
             if msg["tipo"] == "cliente":
                 contexto += f"Cliente: {msg['mensagem']}\n"
             else:
-                contexto += f"IA: {msg['mensagem']}\n"
+                contexto += f"Atendente: {msg['mensagem']}\n"
 
-        # Busca produtos
+        # =========================
+        # PRODUTOS DA XNAMAI
+        # =========================
+
         produtos = buscar_produtos()
 
-        contexto_produtos = "\n\nPRODUTOS DISPONÍVEIS:\n"
+        print("PRODUTOS ENCONTRADOS:")
+        print(produtos)
+
+        contexto_produtos = """
+
+CATÁLOGO OFICIAL DA XNAMAI
+
+Utilize os produtos abaixo para responder clientes.
+
+Se o cliente perguntar sobre produtos,
+preços ou recomendações, utilize este catálogo.
+
+"""
 
         for produto in produtos:
 
-            contexto_produtos += (
-                f"Nome: {produto['nome']}\n"
-                f"Preço: R$ {produto['preco']}\n"
-                f"Estoque: {produto['estoque']}\n"
-                f"Descrição: {produto['descricao']}\n\n"
-            )
+            contexto_produtos += f"""
+
+Nome: {produto['nome']}
+Categoria: {produto['categoria']}
+Preço: R$ {produto['preco']}
+Estoque: {produto['estoque']}
+Descrição: {produto['descricao']}
+
+"""
 
         contexto += contexto_produtos
+
+        print("CONTEXTO ENVIADO PARA IA:")
+        print(contexto)
+
+        # =========================
+        # IA
+        # =========================
 
         print("ENVIANDO PARA IA")
 
         resposta_ia = perguntar_ia(contexto)
 
-        print("RESPOSTA IA:", resposta_ia)
+        print("RESPOSTA IA:")
+        print(resposta_ia)
 
         # Salva resposta da IA
         salvar_mensagem(
@@ -110,7 +139,10 @@ async def webhook(data: dict):
 
         print("Resposta salva")
 
-        # Envia para WhatsApp
+        # =========================
+        # ENVIA WHATSAPP
+        # =========================
+
         enviar_mensagem(
             numero,
             resposta_ia
