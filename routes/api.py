@@ -8,7 +8,8 @@ from services.supabase_service import (
     criar_cliente,
     salvar_mensagem,
     buscar_historico,
-    atualizar_historico_json
+    atualizar_historico_json,
+    buscar_produtos
 )
 
 router = APIRouter()
@@ -58,7 +59,7 @@ async def webhook(data: dict):
             mensagem
         )
 
-        # Atualiza JSON do histórico
+        # Atualiza histórico JSON
         atualizar_historico_json(cliente_id)
 
         print("Mensagem salva")
@@ -75,6 +76,22 @@ async def webhook(data: dict):
             else:
                 contexto += f"IA: {msg['mensagem']}\n"
 
+        # Busca produtos
+        produtos = buscar_produtos()
+
+        contexto_produtos = "\n\nPRODUTOS DISPONÍVEIS:\n"
+
+        for produto in produtos:
+
+            contexto_produtos += (
+                f"Nome: {produto['nome']}\n"
+                f"Preço: R$ {produto['preco']}\n"
+                f"Estoque: {produto['estoque']}\n"
+                f"Descrição: {produto['descricao']}\n\n"
+            )
+
+        contexto += contexto_produtos
+
         print("ENVIANDO PARA IA")
 
         resposta_ia = perguntar_ia(contexto)
@@ -88,7 +105,7 @@ async def webhook(data: dict):
             resposta_ia
         )
 
-        # Atualiza JSON novamente
+        # Atualiza histórico JSON novamente
         atualizar_historico_json(cliente_id)
 
         print("Resposta salva")
