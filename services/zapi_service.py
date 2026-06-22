@@ -1,12 +1,12 @@
 import requests
 
-INSTANCE_ID = "3F4CB317B66E2245E7E58645B9B7D1FC"
-TOKEN = "99C8DCB079A8020DF63E7085"
+INSTANCE_ID = "3Finstance181898"
+TOKEN = "xe2moxi8yqfd51zs"
 CLIENT_TOKEN = "F9cd4078a935541489c79fb0fe74d847fS"
 
 def enviar_mensagem(numero, mensagem):
 
-    url = f"https://api.z-api.io/instances/{INSTANCE_ID}/token/{TOKEN}/send-text"
+    url = f"https://api.ultramsg.com/instance181898/{INSTANCE_ID}/token/{TOKEN}/send-text"
 
     headers = {
         "Client-Token": CLIENT_TOKEN,
