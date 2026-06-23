@@ -104,9 +104,7 @@ def buscar_produtos():
     )
 
     print("================================")
-    print("RESULTADO PRODUTOS:")
-    print(resultado)
-    print("DADOS:")
+    print("DADOS PRODUTOS:")
     print(resultado.data)
     print("================================")
 
@@ -148,6 +146,42 @@ def buscar_produto_por_id(produto_id):
         supabase.table("produtos")
         .select("*")
         .eq("id", produto_id)
+        .execute()
+    )
+
+    
+
+    if resultado.data:
+        return resultado.data[0]
+    
+    
+
+    return None
+
+def criar_lead(cliente_id, interesse):
+
+    resultado = (
+        supabase.table("leads")
+        .insert({
+            "cliente_id": cliente_id,
+            "interesse": interesse,
+            "status": "novo"
+        })
+        .execute()
+    )
+
+    print("LEAD CRIADO:")
+    print(resultado)
+
+    return resultado
+
+def buscar_lead(cliente_id, interesse):
+
+    resultado = (
+        supabase.table("leads")
+        .select("*")
+        .eq("cliente_id", cliente_id)
+        .eq("interesse", interesse)
         .execute()
     )
 

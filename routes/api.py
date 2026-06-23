@@ -9,7 +9,9 @@ from services.supabase_service import (
     salvar_mensagem,
     buscar_historico,
     atualizar_historico_json,
-    buscar_produtos
+    buscar_produtos,
+    criar_lead,
+    buscar_lead
 )
 
 router = APIRouter()
@@ -37,6 +39,10 @@ async def webhook(data: dict):
         print("Número:", numero)
         print("Mensagem:", mensagem)
 
+        # =========================
+        # CLIENTE
+        # =========================
+
         cliente = buscar_cliente(numero)
 
         if not cliente:
@@ -46,6 +52,10 @@ async def webhook(data: dict):
 
         print("CLIENTE ID:", cliente_id)
 
+        # =========================
+        # SALVA MENSAGEM
+        # =========================
+
         salvar_mensagem(
             cliente_id,
             "cliente",
@@ -53,6 +63,10 @@ async def webhook(data: dict):
         )
 
         atualizar_historico_json(cliente_id)
+
+        # =========================
+        # HISTÓRICO
+        # =========================
 
         historico = buscar_historico(cliente_id)
 
@@ -64,6 +78,10 @@ async def webhook(data: dict):
                 historico_texto += f"Cliente: {msg['mensagem']}\n"
             else:
                 historico_texto += f"IA: {msg['mensagem']}\n"
+
+        # =========================
+        # PRODUTOS
+        # =========================
 
         produtos = buscar_produtos()
 
@@ -89,7 +107,67 @@ async def webhook(data: dict):
         print(catalogo)
         print("================================")
 
+        # =========================
+        # LEADS AUTOMÁTICOS
+        # =========================
+
+        mensagem_lower = mensagem.lower()
+
+        if "fone" in mensagem_lower:
+
+            if not buscar_lead(cliente_id, "fone"):
+                criar_lead(cliente_id, "fone")
+                print("LEAD SALVO: fone")
+
+        elif "caixa de som" in mensagem_lower:
+
+            if not buscar_lead(cliente_id, "caixa de som"):
+                criar_lead(cliente_id, "caixa de som")
+                print("LEAD SALVO: caixa de som")
+
+        elif "notebook" in mensagem_lower:
+
+            if not buscar_lead(cliente_id, "notebook"):
+                criar_lead(cliente_id, "notebook")
+                print("LEAD SALVO: notebook")
+
+        elif "celular" in mensagem_lower:
+
+            if not buscar_lead(cliente_id, "celular"):
+                criar_lead(cliente_id, "celular")
+                print("LEAD SALVO: celular")
+
+        elif "carregador" in mensagem_lower:
+
+            if not buscar_lead(cliente_id, "carregador"):
+                criar_lead(cliente_id, "carregador")
+                print("LEAD SALVO: carregador")
+
+        elif "smartwatch" in mensagem_lower:
+
+            if not buscar_lead(cliente_id, "smartwatch"):
+                criar_lead(cliente_id, "smartwatch")
+                print("LEAD SALVO: smartwatch")
+
+        elif "tablet" in mensagem_lower:
+
+            if not buscar_lead(cliente_id, "tablet"):
+                criar_lead(cliente_id, "tablet")
+                print("LEAD SALVO: tablet")
+
+        elif "monitor" in mensagem_lower:
+
+            if not buscar_lead(cliente_id, "monitor"):
+                criar_lead(cliente_id, "monitor")
+                print("LEAD SALVO: monitor")
+
+        # =========================
+        # CONTEXTO IA
+        # =========================
+
         contexto = f"""
+Você é uma atendente da Xnamai.
+
 HISTÓRICO DA CONVERSA:
 
 {historico_texto}
@@ -101,6 +179,8 @@ MENSAGEM ATUAL DO CLIENTE:
 PRODUTOS DISPONÍVEIS:
 
 {catalogo}
+
+Responda de forma amigável e utilize os produtos disponíveis quando fizer sentido.
 """
 
         print("ENVIANDO PARA IA")
@@ -110,6 +190,10 @@ PRODUTOS DISPONÍVEIS:
         print("RESPOSTA IA:")
         print(resposta_ia)
 
+        # =========================
+        # SALVA RESPOSTA IA
+        # =========================
+
         salvar_mensagem(
             cliente_id,
             "ia",
@@ -117,6 +201,10 @@ PRODUTOS DISPONÍVEIS:
         )
 
         atualizar_historico_json(cliente_id)
+
+        # =========================
+        # ENVIA WHATSAPP
+        # =========================
 
         enviar_mensagem(
             numero,
