@@ -22,8 +22,6 @@ def buscar_cliente(telefone):
 
 def criar_cliente(telefone):
 
-    print("CRIANDO CLIENTE:", telefone)
-
     resultado = (
         supabase.table("clientes")
         .insert({
@@ -32,13 +30,7 @@ def criar_cliente(telefone):
         .execute()
     )
 
-    print("RESULTADO INSERT:")
-    print(resultado)
-
-    if resultado.data:
-        return resultado.data[0]
-
-    return None
+    return resultado.data[0]
 
 
 # =========================
@@ -46,8 +38,6 @@ def criar_cliente(telefone):
 # =========================
 
 def salvar_mensagem(cliente_id, tipo, mensagem):
-
-    print("SALVANDO MENSAGEM")
 
     resultado = (
         supabase.table("conversas")
@@ -58,9 +48,6 @@ def salvar_mensagem(cliente_id, tipo, mensagem):
         })
         .execute()
     )
-
-    print("RESULTADO MENSAGEM:")
-    print(resultado)
 
     return resultado
 
@@ -105,82 +92,6 @@ def atualizar_historico_json(cliente_id):
 
 
 # =========================
-# ATENDIMENTOS
-# =========================
-
-def criar_atendimento(cliente_id):
-
-    resultado = (
-        supabase.table("atendimentos")
-        .insert({
-            "cliente_id": cliente_id,
-            "status": "aberto",
-            "assunto": "WhatsApp"
-        })
-        .execute()
-    )
-
-    print("ATENDIMENTO CRIADO:")
-    print(resultado)
-
-    return resultado
-
-
-def buscar_atendimento_aberto(cliente_id):
-
-    resultado = (
-        supabase.table("atendimentos")
-        .select("*")
-        .eq("cliente_id", cliente_id)
-        .eq("status", "aberto")
-        .execute()
-    )
-
-    if resultado.data:
-        return resultado.data[0]
-
-    return None
-
-
-# =========================
-# LEADS
-# =========================
-
-def criar_lead(cliente_id, interesse):
-
-    resultado = (
-        supabase.table("leads")
-        .insert({
-            "cliente_id": cliente_id,
-            "interesse": interesse,
-            "status": "novo"
-        })
-        .execute()
-    )
-
-    print("LEAD CRIADO:")
-    print(resultado)
-
-    return resultado
-
-
-def buscar_lead(cliente_id, interesse):
-
-    resultado = (
-        supabase.table("leads")
-        .select("*")
-        .eq("cliente_id", cliente_id)
-        .eq("interesse", interesse)
-        .execute()
-    )
-
-    if resultado.data:
-        return resultado.data[0]
-
-    return None
-
-
-# =========================
 # PRODUTOS
 # =========================
 
@@ -193,11 +104,30 @@ def buscar_produtos():
     )
 
     print("================================")
+    print("RESULTADO PRODUTOS:")
+    print(resultado)
+    print("DADOS:")
+    print(resultado.data)
+    print("================================")
+
+    return resultado.data
+
+    print("RESULTADO PRODUTOS:")
+    print(resultado.data)
+
+    return resultado.data
+
+    print("================================")
+    print("RESULTADO PRODUTOS:")
+    print(resultado)
+
     print("DADOS PRODUTOS:")
     print(resultado.data)
     print("================================")
 
     return resultado.data
+
+    
 
 
 def buscar_produto_por_nome(nome):

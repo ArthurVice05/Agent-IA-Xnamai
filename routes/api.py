@@ -9,11 +9,7 @@ from services.supabase_service import (
     salvar_mensagem,
     buscar_historico,
     atualizar_historico_json,
-    buscar_produtos,
-    criar_atendimento,
-    buscar_atendimento_aberto,
-    criar_lead,
-    buscar_lead
+    buscar_produtos
 )
 
 router = APIRouter()
@@ -22,7 +18,6 @@ router = APIRouter()
 @router.post("/webhook")
 async def webhook(data: dict):
 
-    try:
 
         print("WEBHOOK RECEBIDO:")
         print(data)
@@ -41,7 +36,10 @@ async def webhook(data: dict):
         print("Número:", numero)
         print("Mensagem:", mensagem)
 
+        # =========================
         # CLIENTE
+        # =========================
+
         cliente = buscar_cliente(numero)
 
         if not cliente:
@@ -51,41 +49,10 @@ async def webhook(data: dict):
 
         print("CLIENTE ID:", cliente_id)
 
-        # ATENDIMENTO
-        atendimento = buscar_atendimento_aberto(cliente_id)
+        # =========================
+        # SALVA MENSAGEM CLIENTE
+        # =========================
 
-        if not atendimento:
-            criar_atendimento(cliente_id)
-
-        # LEADS
-        texto = mensagem.lower()
-
-        interesses = [
-            "fone",
-            "caixa de som",
-            "carregador",
-            "cabo",
-            "suporte"
-        ]
-
-        for interesse in interesses:
-
-            if interesse in texto:
-
-                lead = buscar_lead(
-                    cliente_id,
-                    interesse
-                )
-
-                if not lead:
-                    criar_lead(
-                        cliente_id,
-                        interesse
-                    )
-
-                break
-
-        # SALVA MENSAGEM
         salvar_mensagem(
             cliente_id,
             "cliente",
@@ -94,7 +61,10 @@ async def webhook(data: dict):
 
         atualizar_historico_json(cliente_id)
 
+        # =========================
         # HISTÓRICO
+        # =========================
+
         historico = buscar_historico(cliente_id)
 
         historico_texto = ""
@@ -106,67 +76,41 @@ async def webhook(data: dict):
             else:
                 historico_texto += f"Atendente: {msg['mensagem']}\n"
 
+        # =========================
         # PRODUTOS
-        produtos = buscar_produtos()
+        # =========================
 
-        catalogo = ""
+        # ==================================
+# PRODUTOS
+# ==================================
 
-        for produto in produtos:
+produtos = buscar_produtos()
 
-            catalogo += (
-                f"Nome: {produto['nome']}\n"
-                f"Categoria: {produto['categoria']}\n"
-                f"Preço: R$ {produto['preco']}\n"
-                f"Estoque: {produto['estoque']}\n"
-                f"Descrição: {produto['descricao']}\n\n"
-            )
+print("================================")
+print("PRODUTOS VINDOS DO SUPABASE:")
+print(produtos)
 
-        contexto_final = f"""
-HISTÓRICO:
+if produtos:
+    print("TOTAL PRODUTOS:", len(produtos))
+else:
+    print("TOTAL PRODUTOS: 0")
 
-{historico_texto}
+print("================================")
 
-MENSAGEM DO CLIENTE:
+catalogo = ""
 
-{mensagem}
+for produto in produtos:
 
-CATÁLOGO DE PRODUTOS:
+    catalogo += (
+        f"PRODUTO\n"
+        f"Nome: {produto['nome']}\n"
+        f"Categoria: {produto['categoria']}\n"
+        f"Preço: R$ {produto['preco']}\n"
+        f"Estoque: {produto['estoque']}\n"
+        f"Descrição: {produto['descricao']}\n\n"
+    )
 
-{catalogo}
-"""
-
-        print("CONTEXTO ENVIADO PARA IA:")
-        print(contexto_final)
-
-        resposta_ia = perguntar_ia(contexto_final)
-
-        print("RESPOSTA IA:")
-        print(resposta_ia)
-
-        # SALVA RESPOSTA
-        salvar_mensagem(
-            cliente_id,
-            "ia",
-            resposta_ia
-        )
-
-        atualizar_historico_json(cliente_id)
-
-        # ENVIA WHATSAPP
-        enviar_mensagem(
-            numero,
-            resposta_ia
-        )
-
-        return {
-            "status": "ok"
-        }
-
-    except Exception as e:
-
-        print("ERRO:", str(e))
-
-        return {
-            "status": "erro",
-            "mensagem": str(e)
-        }
+print("================================")
+print("CATALOGO MONTADO:")
+print(catalogo)
+print("================================")
