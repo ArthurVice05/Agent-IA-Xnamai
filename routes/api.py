@@ -18,6 +18,7 @@ router = APIRouter()
 @router.post("/webhook")
 async def webhook(data: dict):
 
+    try:
 
         print("WEBHOOK RECEBIDO:")
         print(data)
@@ -36,10 +37,6 @@ async def webhook(data: dict):
         print("Número:", numero)
         print("Mensagem:", mensagem)
 
-        # =========================
-        # CLIENTE
-        # =========================
-
         cliente = buscar_cliente(numero)
 
         if not cliente:
@@ -49,10 +46,6 @@ async def webhook(data: dict):
 
         print("CLIENTE ID:", cliente_id)
 
-        # =========================
-        # SALVA MENSAGEM CLIENTE
-        # =========================
-
         salvar_mensagem(
             cliente_id,
             "cliente",
@@ -60,10 +53,6 @@ async def webhook(data: dict):
         )
 
         atualizar_historico_json(cliente_id)
-
-        # =========================
-        # HISTÓRICO
-        # =========================
 
         historico = buscar_historico(cliente_id)
 
@@ -74,43 +63,78 @@ async def webhook(data: dict):
             if msg["tipo"] == "cliente":
                 historico_texto += f"Cliente: {msg['mensagem']}\n"
             else:
-                historico_texto += f"Atendente: {msg['mensagem']}\n"
+                historico_texto += f"IA: {msg['mensagem']}\n"
 
-        # =========================
-        # PRODUTOS
-        # =========================
+        produtos = buscar_produtos()
 
-        # ==================================
-# PRODUTOS
-# ==================================
+        print("================================")
+        print("PRODUTOS VINDOS DO SUPABASE:")
+        print(produtos)
+        print("================================")
 
-produtos = buscar_produtos()
+        catalogo = ""
 
-print("================================")
-print("PRODUTOS VINDOS DO SUPABASE:")
-print(produtos)
+        for produto in produtos:
 
-if produtos:
-    print("TOTAL PRODUTOS:", len(produtos))
-else:
-    print("TOTAL PRODUTOS: 0")
+            catalogo += (
+                f"Nome: {produto['nome']}\n"
+                f"Categoria: {produto.get('categoria', '')}\n"
+                f"Preço: R$ {produto['preco']}\n"
+                f"Estoque: {produto['estoque']}\n"
+                f"Descrição: {produto['descricao']}\n\n"
+            )
 
-print("================================")
+        print("================================")
+        print("CATALOGO MONTADO:")
+        print(catalogo)
+        print("================================")
 
-catalogo = ""
+        contexto = f"""
+HISTÓRICO DA CONVERSA:
 
-for produto in produtos:
+{historico_texto}
 
-    catalogo += (
-        f"PRODUTO\n"
-        f"Nome: {produto['nome']}\n"
-        f"Categoria: {produto['categoria']}\n"
-        f"Preço: R$ {produto['preco']}\n"
-        f"Estoque: {produto['estoque']}\n"
-        f"Descrição: {produto['descricao']}\n\n"
-    )
+MENSAGEM ATUAL DO CLIENTE:
 
-print("================================")
-print("CATALOGO MONTADO:")
-print(catalogo)
-print("================================")
+{mensagem}
+
+PRODUTOS DISPONÍVEIS:
+
+{catalogo}
+"""
+
+        print("ENVIANDO PARA IA")
+
+        resposta_ia = perguntar_ia(contexto)
+
+        print("RESPOSTA IA:")
+        print(resposta_ia)
+
+        salvar_mensagem(
+            cliente_id,
+            "ia",
+            resposta_ia
+        )
+
+        atualizar_historico_json(cliente_id)
+
+        enviar_mensagem(
+            numero,
+            resposta_ia
+        )
+
+        print("MENSAGEM ENVIADA")
+
+        return {
+            "status": "ok"
+        }
+
+    except Exception as e:
+
+        print("ERRO:")
+        print(str(e))
+
+        return {
+            "status": "erro",
+            "mensagem": str(e)
+        }

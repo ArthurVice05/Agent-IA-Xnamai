@@ -5,15 +5,35 @@ TOKEN = "xe2moxi8yqfd51zs"
 
 def enviar_mensagem(numero, mensagem):
 
-    url = f"https://api.ultramsg.com/{INSTANCE_ID}/messages/chat"
+    try:
 
-    payload = {
-        "token": TOKEN,
-        "to": numero,
-        "body": mensagem
-    }
+        print("================================")
+        print("ENVIANDO WHATSAPP")
+        print("NUMERO:", numero)
+        print("MENSAGEM:", mensagem)
+        print("================================")
 
-    response = requests.post(url, data=payload)
+        url = f"https://api.ultramsg.com/{INSTANCE_ID}/messages/chat"
 
-    print("STATUS:", response.status_code)
-    print("RESPOSTA:", response.text)
+        payload = {
+            "token": TOKEN,
+            "to": numero,
+            "body": mensagem
+        }
+
+        response = requests.post(
+            url,
+            data=payload,
+            timeout=30
+        )
+
+        print("STATUS:", response.status_code)
+        print("RESPOSTA:", response.text)
+
+        return response.text
+
+    except Exception as e:
+
+        print("ERRO ULTRAMSG:", str(e))
+
+        return None
