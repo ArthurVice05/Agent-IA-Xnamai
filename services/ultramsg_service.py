@@ -1,11 +1,22 @@
-import requests
+import os
 
-INSTANCE_ID = "instance181898"
-TOKEN = "xe2moxi8yqfd51zs"
+import requests
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
+INSTANCE_ID = os.getenv("ULTRAMSG_INSTANCE_ID", "")
+TOKEN = os.getenv("ULTRAMSG_TOKEN", "")
+
+
+def _normalizar_numero(numero: str) -> str:
+    return numero.split("@")[0].replace("+", "").strip()
+
 
 def enviar_mensagem(numero, mensagem):
 
     try:
+        numero = _normalizar_numero(numero)
 
         print("================================")
         print("ENVIANDO WHATSAPP")
@@ -18,13 +29,13 @@ def enviar_mensagem(numero, mensagem):
         payload = {
             "token": TOKEN,
             "to": numero,
-            "body": mensagem
+            "body": mensagem,
         }
 
         response = requests.post(
             url,
             data=payload,
-            timeout=30
+            timeout=30,
         )
 
         print("STATUS:", response.status_code)

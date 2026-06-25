@@ -3,13 +3,16 @@ from fastapi import APIRouter
 from services.openai_service import perguntar_ia
 from services.ultramsg_service import enviar_mensagem
 
+from services.produtos_service import (
+    buscar_produtos_para_atendimento,
+)
+from services.mercos_service import montar_catalogo_texto
 from services.supabase_service import (
     buscar_cliente,
     criar_cliente,
     salvar_mensagem,
     buscar_historico,
     atualizar_historico_json,
-    buscar_produtos,
     criar_lead,
     buscar_lead
 )
@@ -30,7 +33,10 @@ async def webhook(data: dict):
 
         evento = data["data"]
 
-        numero = evento.get("from")
+        if evento.get("fromMe"):
+            return {"status": "mensagem_propria_ignorada"}
+
+        numero = evento.get("from", "").split("@")[0].replace("+", "").strip()
         mensagem = evento.get("body")
 
         if not numero or not mensagem:
@@ -83,25 +89,16 @@ async def webhook(data: dict):
         # PRODUTOS
         # =========================
 
-        produtos = buscar_produtos()
+        resultado_produtos = buscar_produtos_para_atendimento(mensagem)
+        produtos = resultado_produtos["produtos"]
+        catalogo = montar_catalogo_texto(produtos)
 
         print("================================")
-        print("PRODUTOS VINDOS DO SUPABASE:")
+        print("FONTE PRODUTOS:", resultado_produtos["fonte"])
+        if resultado_produtos["erro_mercos"]:
+            print("MERCOS INDISPONIVEL:", resultado_produtos["erro_mercos"])
+        print("PRODUTOS ENCONTRADOS:")
         print(produtos)
-        print("================================")
-
-        catalogo = ""
-
-        for produto in produtos:
-
-            catalogo += (
-                f"Nome: {produto['nome']}\n"
-                f"Categoria: {produto.get('categoria', '')}\n"
-                f"Preço: R$ {produto['preco']}\n"
-                f"Estoque: {produto['estoque']}\n"
-                f"Descrição: {produto['descricao']}\n\n"
-            )
-
         print("================================")
         print("CATALOGO MONTADO:")
         print(catalogo)
@@ -226,3 +223,32 @@ Responda de forma amigável e utilize os produtos disponíveis quando fizer sent
             "status": "erro",
             "mensagem": str(e)
         }
+
+
+@router.get("/teste-produtos")
+async def teste_produtos(q: str = ""):
+    """Testa busca de produtos (Mercos ou Supabase)."""
+    try:
+        mensagem = q or "produto"
+        resultado = buscar_produtos_para_atendimento(mensagem)
+        produtos = resultado["produtos"]
+
+        return {
+            "status": "ok",
+            "fonte": resultado["fonte"],
+            "busca": mensagem,
+            "total": len(produtos),
+            "produtos": produtos,
+            "catalogo": montar_catalogo_texto(produtos),
+            "erro_mercos": resultado["erro_mercos"],
+        }
+    except Exception as e:
+        return {
+            "status": "erro",
+            "mensagem": str(e),
+        }
+
+
+@router.get("/teste-mercos")
+async def teste_mercos(q: str = ""):
+    return await teste_produtos(q)
