@@ -1,4 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter
+import os
+import threading
 
 from services.openai_service import perguntar_ia
 from services.ultramsg_service import enviar_mensagem, ultramsg_configurado
@@ -213,14 +215,27 @@ Responda de forma amigável e utilize os produtos disponíveis quando fizer sent
 
 
 @router.post("/webhook")
-async def webhook(data: dict, background_tasks: BackgroundTasks):
+async def webhook(data: dict):
 
     print("WEBHOOK RECEBIDO:")
     print(data)
 
-    background_tasks.add_task(processar_mensagem, data)
+    threading.Thread(
+        target=processar_mensagem,
+        args=(data,),
+        daemon=True,
+    ).start()
 
     return {"status": "recebido"}
+
+
+@router.get("/status")
+async def status():
+    return {
+        "status": "online",
+        "ultramsg_configurado": ultramsg_configurado(),
+        "produtos_fonte": os.getenv("PRODUTOS_FONTE", "auto"),
+    }
 
 
 @router.get("/teste-produtos")
