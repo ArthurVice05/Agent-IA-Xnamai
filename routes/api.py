@@ -1,6 +1,7 @@
 from fastapi import APIRouter
+import asyncio
 import os
-import threading
+import traceback
 
 from services.openai_service import perguntar_ia
 from services.ultramsg_service import enviar_mensagem, ultramsg_configurado
@@ -212,6 +213,7 @@ Responda de forma amigável e utilize os produtos disponíveis quando fizer sent
 
         print("ERRO:")
         print(str(e))
+        traceback.print_exc()
 
 
 async def receber_webhook(data: dict):
@@ -219,13 +221,10 @@ async def receber_webhook(data: dict):
     print("WEBHOOK RECEBIDO:")
     print(data)
 
-    threading.Thread(
-        target=processar_mensagem,
-        args=(data,),
-        daemon=True,
-    ).start()
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, processar_mensagem, data)
 
-    return {"status": "recebido"}
+    return {"status": "ok"}
 
 
 @router.post("/webhook")

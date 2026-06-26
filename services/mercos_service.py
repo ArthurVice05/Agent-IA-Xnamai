@@ -65,7 +65,7 @@ def _requisicao_mercos(pagina: int) -> requests.Response:
                 f"{BASE_URL}/v2/produtos",
                 headers=_headers(application_token),
                 params={"pagina": pagina},
-                timeout=30,
+                timeout=8,
             )
 
             if resposta.status_code == 200:
@@ -205,10 +205,7 @@ def buscar_produtos_para_atendimento(mensagem: str) -> list[dict]:
     if termos:
         return []
 
-    return [
-        normalizar_produto(p)
-        for p in buscar_produtos_mercos()[:LIMITE_CATALOGO]
-    ]
+    return []
 
 
 def montar_catalogo_texto(produtos: list[dict]) -> str:

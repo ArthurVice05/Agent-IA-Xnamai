@@ -45,6 +45,14 @@ def _buscar_supabase(mensagem: str) -> list[dict]:
 def buscar_produtos_para_atendimento(mensagem: str) -> dict:
     fonte = _fonte_configurada()
     erro_mercos = None
+    termos = _extrair_termos(mensagem)
+
+    if not termos:
+        return {
+            "produtos": [],
+            "fonte": "nenhum",
+            "erro_mercos": None,
+        }
 
     if fonte in ("mercos", "auto"):
         try:
