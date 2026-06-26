@@ -13,6 +13,7 @@ from services.mercos_service import montar_catalogo_texto
 from services.supabase_service import (
     buscar_cliente,
     criar_cliente,
+    atualizar_cliente,
     salvar_mensagem,
     buscar_historico,
     atualizar_historico_json,
@@ -68,7 +69,11 @@ def processar_mensagem(data: dict):
         cliente = buscar_cliente(numero)
 
         if not cliente:
-            cliente = criar_cliente(numero)
+            cliente = criar_cliente(numero, nome=nome_cliente)
+            print("CLIENTE NOVO CADASTRADO:", numero)
+        elif nome_cliente and cliente.get("nome") != nome_cliente:
+            atualizar_cliente(cliente_id=cliente["id"], nome=nome_cliente)
+            cliente["nome"] = nome_cliente
 
         cliente_id = cliente["id"]
 

@@ -20,17 +20,34 @@ def buscar_cliente(telefone):
     return None
 
 
-def criar_cliente(telefone):
+def criar_cliente(telefone, nome=""):
+
+    dados = {"telefone": telefone}
+    if nome:
+        dados["nome"] = nome
 
     resultado = (
         supabase.table("clientes")
-        .insert({
-            "telefone": telefone
-        })
+        .insert(dados)
         .execute()
     )
 
     return resultado.data[0]
+
+
+def atualizar_cliente(cliente_id, **campos):
+
+    if not campos:
+        return None
+
+    resultado = (
+        supabase.table("clientes")
+        .update(campos)
+        .eq("id", cliente_id)
+        .execute()
+    )
+
+    return resultado
 
 
 def salvar_openai_thread_id(cliente_id, thread_id):
