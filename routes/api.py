@@ -4,7 +4,8 @@ import os
 import traceback
 
 from services.openai_service import perguntar_ia, resposta_saudacao
-from services.ultramsg_service import enviar_mensagem, ultramsg_configurado
+from services.ultramsg_service import enviar_imagem, enviar_mensagem, ultramsg_configurado
+from services.produto_imagem_service import enviar_fotos_produtos
 
 from services.produtos_service import (
     buscar_produtos_para_atendimento,
@@ -184,6 +185,11 @@ def processar_mensagem(data: dict):
             resposta_ia
         )
 
+        if produtos and not saudacao:
+            fotos_enviadas = enviar_fotos_produtos(numero, produtos, mensagem)
+            if fotos_enviadas:
+                print(f"FOTOS ENVIADAS: {fotos_enviadas}")
+
         print("PROCESSAMENTO CONCLUIDO")
 
     except Exception as e:
@@ -264,6 +270,26 @@ async def teste_vendedor():
         mensagem_cliente="Quero comprar um fone",
         produtos=[{"nome": "Fone Bluetooth HMaston RS60"}],
     )
+
+    return {
+        "status": "ok" if resposta else "erro",
+        "resposta_ultramsg": resposta,
+    }
+
+
+@router.get("/teste-imagem")
+async def teste_imagem(tel: str = "", url: str = ""):
+    """Envia imagem de teste via UltraMsg."""
+    if not tel or not url:
+        return {
+            "status": "erro",
+            "mensagem": "Informe ?tel=5543988601234&url=https://...jpg",
+        }
+
+    if not ultramsg_configurado():
+        return {"status": "erro", "mensagem": "UltraMsg não configurada"}
+
+    resposta = enviar_imagem(tel, url, "Teste de imagem — Xnamai")
 
     return {
         "status": "ok" if resposta else "erro",

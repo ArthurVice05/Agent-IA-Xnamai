@@ -19,6 +19,31 @@ def ultramsg_configurado() -> bool:
 
 def enviar_mensagem(numero, mensagem):
 
+    return _enviar_ultramsg(
+        endpoint="messages/chat",
+        numero=numero,
+        payload_extra={"body": mensagem},
+        log_tipo="TEXTO",
+        log_conteudo=mensagem,
+    )
+
+
+def enviar_imagem(numero, url_imagem, legenda=""):
+
+    return _enviar_ultramsg(
+        endpoint="messages/image",
+        numero=numero,
+        payload_extra={
+            "image": url_imagem,
+            "caption": legenda or "Produto",
+        },
+        log_tipo="IMAGEM",
+        log_conteudo=f"{url_imagem} | {legenda}",
+    )
+
+
+def _enviar_ultramsg(endpoint, numero, payload_extra, log_tipo, log_conteudo):
+
     try:
         if not ultramsg_configurado():
             print("ERRO ULTRAMSG: ULTRAMSG_INSTANCE_ID ou ULTRAMSG_TOKEN não configurados")
@@ -27,17 +52,17 @@ def enviar_mensagem(numero, mensagem):
         numero = _normalizar_numero(numero)
 
         print("================================")
-        print("ENVIANDO WHATSAPP")
+        print(f"ENVIANDO WHATSAPP ({log_tipo})")
         print("NUMERO:", numero)
-        print("MENSAGEM:", mensagem)
+        print("CONTEUDO:", log_conteudo)
         print("================================")
 
-        url = f"https://api.ultramsg.com/{INSTANCE_ID}/messages/chat"
+        url = f"https://api.ultramsg.com/{INSTANCE_ID}/{endpoint}"
 
         payload = {
             "token": TOKEN,
             "to": numero,
-            "body": mensagem,
+            **payload_extra,
         }
 
         response = requests.post(

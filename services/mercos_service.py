@@ -142,6 +142,7 @@ def normalizar_produto(produto: dict) -> dict:
         "preco": _valor_preco(produto),
         "estoque": _valor_estoque(produto),
         "descricao": produto.get("observacoes") or produto.get("descricao") or "",
+        "imagem_url": produto.get("imagem_url") or produto.get("imagem") or "",
     }
 
 
