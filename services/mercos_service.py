@@ -62,7 +62,7 @@ def _requisicao_mercos(pagina: int) -> requests.Response:
     for application_token in _application_tokens():
         for tentativa in range(3):
             resposta = requests.get(
-                f"{BASE_URL}/v2/produtos",
+                f"{BASE_URL}/v1/produtos",
                 headers=_headers(application_token),
                 params={"pagina": pagina},
                 timeout=8,
