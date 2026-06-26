@@ -19,6 +19,7 @@ from services.produto_imagem_service import (
 )
 
 from services.conversa_service import (
+    eh_alteracao_pagamento,
     eh_confirmacao_fechamento,
     extrair_nome_do_historico,
     resposta_fechamento_pedido,
@@ -134,9 +135,10 @@ def processar_mensagem(data: dict):
         fechamento = eh_confirmacao_fechamento(
             mensagem, historico_texto, ultima_resposta_ia
         )
+        alteracao_pagamento = eh_alteracao_pagamento(mensagem, historico_texto)
         saudacao = eh_saudacao(mensagem, historico_texto)
 
-        if fechamento or saudacao:
+        if fechamento or alteracao_pagamento or saudacao:
             produtos = []
             catalogo = ""
             resultado_produtos = {"fonte": "", "erro_mercos": None}
@@ -192,12 +194,14 @@ def processar_mensagem(data: dict):
             )
         )
 
-        if fechamento:
+        if fechamento or alteracao_pagamento:
             frete_estimado = float(os.getenv("FRETE_ESTIMADO", "0") or "0")
             resposta_ia = resposta_fechamento_pedido(
                 historico_texto,
                 nome_cliente,
                 frete_estimado,
+                mensagem_atual=mensagem,
+                ultima_resposta_ia=ultima_resposta_ia,
             )
             resultado_fechamento = buscar_produtos_para_atendimento(historico_texto)
             if vendedor_configurado():

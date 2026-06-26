@@ -119,6 +119,7 @@ NOMES_IGNORAR = {
     "cliente",
     "sim",
     "na",
+    "no",
     "o",
     "a",
 }
@@ -138,7 +139,7 @@ def extrair_nome_do_historico(historico_texto: str, pushname: str = "") -> str:
             return match.group(1).strip().title()
 
     nomes_ia = re.findall(
-        r"(?:fechado|perfeito|show|obrigad[oa]|certo|combinado),?\s+([A-Za-zÀ-ÿ]{2,20})",
+        r"(?:fechado|perfeito|show|obrigad[oa]|certo|combinado),\s+([A-Za-zÀ-ÿ]{2,20})",
         historico_texto,
         re.I,
     )
@@ -157,6 +158,8 @@ def extrair_endereco(historico_texto: str) -> str:
         if not linha.startswith("Cliente:"):
             continue
         texto = linha.replace("Cliente:", "").strip()
+        if _eh_dado_contato(texto):
+            continue
         if re.search(r"\b(rua|av\.?|avenida|travessa|rodovia)\b", texto, re.I):
             return texto
         if re.search(r"\d{1,5}", texto) and len(texto) > 15:
@@ -164,15 +167,79 @@ def extrair_endereco(historico_texto: str) -> str:
     return ""
 
 
-def extrair_pagamento(historico_texto: str) -> str:
-    historico = _normalizar(historico_texto)
-    if "debito" in historico or "débito" in historico.lower():
+def _eh_dado_contato(texto: str) -> bool:
+    return bool(
+        re.search(r"@|\bcpf\b|\d{11}", texto, re.I)
+        and not re.search(r"\b(rua|av\.?|avenida)\b", texto, re.I)
+    )
+
+
+def extrair_contato(historico_texto: str) -> str:
+    for linha in reversed(historico_texto.split("\n")):
+        if not linha.startswith("Cliente:"):
+            continue
+        texto = linha.replace("Cliente:", "").strip()
+        if _eh_dado_contato(texto):
+            return texto
+    return ""
+
+
+def _detectar_pagamento_linha(texto: str) -> str | None:
+    t = _normalizar(texto)
+    if re.search(r"\bpix\b", t) or "via pix" in t or "por pix" in t or "no pix" in t:
+        return "PIX na entrega"
+    if re.search(r"\bdebito\b", t):
         return "débito na entrega"
-    if "pix" in historico:
-        return "PIX"
-    if "credito" in historico or "crédito" in historico.lower():
-        return "cartão de crédito"
+    if re.search(r"\bcredito\b|\bcartao\b|\bcartão\b", t):
+        return "cartão de crédito na entrega"
+    return None
+
+
+def extrair_pagamento(
+    historico_texto: str,
+    mensagem_atual: str = "",
+    ultima_resposta_ia: str = "",
+) -> str:
+    if mensagem_atual:
+        pagamento = _detectar_pagamento_linha(mensagem_atual)
+        if pagamento:
+            return pagamento
+
+    if ultima_resposta_ia and "Resumo do pedido" not in ultima_resposta_ia:
+        pagamento = _detectar_pagamento_linha(ultima_resposta_ia)
+        if pagamento:
+            return pagamento
+
+    linhas = [l for l in historico_texto.split("\n") if l.strip()]
+
+    for linha in reversed(linhas):
+        if not linha.startswith("Cliente:"):
+            continue
+        pagamento = _detectar_pagamento_linha(linha.replace("Cliente:", "").strip())
+        if pagamento:
+            return pagamento
+
+    for linha in reversed(linhas):
+        if not linha.startswith("IA:"):
+            continue
+        texto = linha.replace("IA:", "").strip()
+        if "Resumo do pedido" in texto or "Pagamento:" in texto:
+            continue
+        pagamento = _detectar_pagamento_linha(texto)
+        if pagamento:
+            return pagamento
+
     return "a combinar"
+
+
+def eh_alteracao_pagamento(mensagem: str, historico_texto: str) -> bool:
+    if not conversa_em_andamento(historico_texto):
+        return False
+    if _detectar_pagamento_linha(mensagem) is None:
+        return False
+
+    historico = _normalizar(historico_texto)
+    return any(indicio in historico for indicio in INDICIOS_FECHAMENTO)
 
 
 def _extrair_preco_historico(historico_texto: str) -> float | None:
@@ -238,6 +305,8 @@ def resposta_fechamento_pedido(
     historico_texto: str,
     pushname: str = "",
     frete_estimado: float = 0,
+    mensagem_atual: str = "",
+    ultima_resposta_ia: str = "",
 ) -> str:
     nome = extrair_nome_do_historico(historico_texto, pushname)
     produto = _buscar_produto_do_historico(historico_texto) or {}
@@ -251,7 +320,12 @@ def resposta_fechamento_pedido(
     preco_fmt = _formatar_preco(preco)
 
     endereco = extrair_endereco(historico_texto)
-    pagamento = extrair_pagamento(historico_texto)
+    contato = extrair_contato(historico_texto)
+    pagamento = extrair_pagamento(
+        historico_texto,
+        mensagem_atual=mensagem_atual,
+        ultima_resposta_ia=ultima_resposta_ia,
+    )
 
     linhas = [f"Fechado, {nome}! Resumo do pedido:"]
     linhas.append(f"📦 {nome_produto}")
@@ -273,6 +347,8 @@ def resposta_fechamento_pedido(
 
     if endereco:
         linhas.append(f"📍 Entrega: {endereco}")
+    elif contato:
+        linhas.append(f"📋 Dados: {contato}")
 
     if pagamento:
         linhas.append(f"💳 Pagamento: {pagamento}")
