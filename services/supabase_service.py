@@ -163,6 +163,63 @@ def buscar_produto_por_id(produto_id):
 
     return None
 
+
+def buscar_produto_por_mercos_id(mercos_id):
+
+    resultado = (
+        supabase.table("produtos")
+        .select("*")
+        .eq("mercos_id", mercos_id)
+        .execute()
+    )
+
+    if resultado.data:
+        return resultado.data[0]
+
+    return None
+
+
+def sincronizar_produto_mercos(dados: dict) -> str:
+    mercos_id = dados.get("mercos_id")
+    existente = None
+
+    if mercos_id is not None:
+        existente = buscar_produto_por_mercos_id(mercos_id)
+
+    if not existente and dados.get("nome"):
+        resultado = (
+            supabase.table("produtos")
+            .select("*")
+            .eq("nome", dados["nome"])
+            .limit(1)
+            .execute()
+        )
+        if resultado.data:
+            existente = resultado.data[0]
+
+    campos = {
+        "mercos_id": mercos_id,
+        "nome": dados.get("nome"),
+        "codigo": dados.get("codigo") or "",
+        "categoria": dados.get("categoria") or "",
+        "preco": dados.get("preco") or 0,
+        "estoque": dados.get("estoque") or 0,
+        "descricao": dados.get("descricao") or "",
+    }
+
+    if dados.get("imagem_url"):
+        campos["imagem_url"] = dados["imagem_url"]
+
+    if existente:
+        if mercos_id is not None and not existente.get("mercos_id"):
+            campos["mercos_id"] = mercos_id
+
+        supabase.table("produtos").update(campos).eq("id", existente["id"]).execute()
+        return "atualizado"
+
+    supabase.table("produtos").insert(campos).execute()
+    return "criado"
+
 # =========================
 # LEADS
 # =========================

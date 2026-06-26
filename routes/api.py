@@ -20,6 +20,7 @@ from services.supabase_service import (
     buscar_historico,
     atualizar_historico_json,
 )
+from services.sync_mercos_service import sincronizar_produtos_mercos
 from services.vendedor_service import (
     notificar_vendedor,
     processar_lead_e_notificar,
@@ -223,6 +224,22 @@ async def status():
         "vendedor_configurado": vendedor_configurado(),
         "produtos_fonte": os.getenv("PRODUTOS_FONTE", "auto"),
     }
+
+
+@router.post("/sync-produtos")
+@router.get("/sync-produtos")
+async def sync_produtos(token: str = ""):
+    """Sincroniza produtos Mercos → Supabase. Opcional: ?token=SEU_SYNC_TOKEN"""
+    sync_token = os.getenv("SYNC_TOKEN", "").strip()
+
+    if sync_token and token != sync_token:
+        return {"status": "erro", "mensagem": "Token inválido"}
+
+    try:
+        resultado = sincronizar_produtos_mercos()
+        return {"status": "ok", **resultado}
+    except Exception as e:
+        return {"status": "erro", "mensagem": str(e)}
 
 
 @router.get("/teste-produtos")

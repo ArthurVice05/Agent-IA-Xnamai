@@ -134,7 +134,41 @@ def _valor_estoque(produto: dict):
     return 0
 
 
+def extrair_imagem_mercos(produto: dict) -> str:
+    """Extrai URL de imagem se a Mercos enviar no JSON do produto."""
+    for campo in (
+        "imagem_url",
+        "imagem",
+        "url_imagem",
+        "foto",
+        "foto_url",
+        "url_foto",
+        "link_imagem",
+    ):
+        url = str(produto.get(campo) or "").strip()
+        if url.startswith("http"):
+            return url
+
+    for campo in ("imagens", "fotos", "anexos", "arquivos"):
+        itens = produto.get(campo)
+        if not isinstance(itens, list):
+            continue
+
+        for item in itens:
+            if isinstance(item, str) and item.startswith("http"):
+                return item
+
+            if isinstance(item, dict):
+                for chave in ("url", "link", "imagem_url", "arquivo_url", "caminho"):
+                    url = str(item.get(chave) or "").strip()
+                    if url.startswith("http"):
+                        return url
+
+    return ""
+
+
 def normalizar_produto(produto: dict) -> dict:
+    imagem = extrair_imagem_mercos(produto)
     return {
         "nome": produto.get("nome", ""),
         "codigo": produto.get("codigo", ""),
@@ -142,7 +176,7 @@ def normalizar_produto(produto: dict) -> dict:
         "preco": _valor_preco(produto),
         "estoque": _valor_estoque(produto),
         "descricao": produto.get("observacoes") or produto.get("descricao") or "",
-        "imagem_url": produto.get("imagem_url") or produto.get("imagem") or "",
+        "imagem_url": imagem,
     }
 
 
