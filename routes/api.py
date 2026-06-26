@@ -214,8 +214,7 @@ Responda de forma amigável e utilize os produtos disponíveis quando fizer sent
         print(str(e))
 
 
-@router.post("/webhook")
-async def webhook(data: dict):
+async def receber_webhook(data: dict):
 
     print("WEBHOOK RECEBIDO:")
     print(data)
@@ -227,6 +226,11 @@ async def webhook(data: dict):
     ).start()
 
     return {"status": "recebido"}
+
+
+@router.post("/webhook")
+async def webhook(data: dict):
+    return await receber_webhook(data)
 
 
 @router.get("/status")
