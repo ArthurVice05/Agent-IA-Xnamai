@@ -18,7 +18,6 @@ from services.supabase_service import (
     salvar_mensagem,
     buscar_historico,
     atualizar_historico_json,
-    salvar_openai_thread_id,
 )
 from services.vendedor_service import (
     notificar_vendedor,
@@ -146,21 +145,13 @@ def processar_mensagem(data: dict):
 
         print("ENVIANDO PARA IA")
 
-        thread_id = cliente.get("openai_thread_id")
-        resposta_ia, thread_id = perguntar_ia(
+        resposta_ia = perguntar_ia(
             mensagem=mensagem,
             catalogo=catalogo,
             historico_texto=historico_texto,
             nome_cliente=nome_cliente,
             eh_saudacao=saudacao,
-            thread_id=thread_id,
         )
-
-        if thread_id and thread_id != cliente.get("openai_thread_id"):
-            try:
-                salvar_openai_thread_id(cliente_id, thread_id)
-            except Exception as thread_error:
-                print("AVISO: não salvou openai_thread_id:", thread_error)
 
         print("RESPOSTA IA:")
         print(resposta_ia)
