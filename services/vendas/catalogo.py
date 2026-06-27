@@ -72,26 +72,41 @@ def _deduplicar(produtos: list[dict]) -> list[dict]:
     return resultado
 
 
+TERMOS_ESTETICOS = {
+    "vermelha", "vermelho", "azul", "preto", "branco", "rosa", "verde", "amarelo",
+    "linda", "lindo", "bonita", "bonito", "fica", "ficou", "show", "perfeito",
+}
+
+
 def _termos_do_cliente(mensagem: str, historico_texto: str = "") -> list[str]:
-    """Termos da mensagem atual ou das últimas falas do cliente — nunca do histórico completo."""
-    termos = _extrair_termos(mensagem)
-    if termos:
-        return termos
+    """Termos da mensagem atual + produto citado nas falas recentes do cliente."""
+    termos_atual = _extrair_termos(mensagem)
 
-    if not historico_texto:
-        return []
+    linhas_cliente: list[str] = []
+    if historico_texto:
+        linhas_cliente = [
+            linha.replace("Cliente:", "").strip()
+            for linha in historico_texto.split("\n")
+            if linha.startswith("Cliente:")
+        ]
 
-    linhas_cliente = [
-        linha.replace("Cliente:", "").strip()
-        for linha in historico_texto.split("\n")
-        if linha.startswith("Cliente:")
-    ]
-    for linha in reversed(linhas_cliente[-6:]):
-        termos = _extrair_termos(linha)
-        if termos:
-            return termos
+    termos_hist: list[str] = []
+    for linha in linhas_cliente[-8:]:
+        for termo in _extrair_termos(linha):
+            if termo not in termos_hist:
+                termos_hist.append(termo)
 
-    return []
+    produto_hist = [t for t in termos_hist if t not in TERMOS_ESTETICOS]
+
+    if termos_atual and all(t in TERMOS_ESTETICOS for t in termos_atual):
+        return produto_hist or termos_atual
+
+    combinados: list[str] = []
+    for termo in produto_hist + termos_atual:
+        if termo not in combinados:
+            combinados.append(termo)
+
+    return combinados or termos_hist
 
 
 def _mensagem_busca(mensagem: str, historico_texto: str = "") -> str:
@@ -241,6 +256,17 @@ def _complementos(produto_ref: dict, catalogo: list[dict], limite: int = 2) -> l
     return _deduplicar(candidatos)[:limite]
 
 
+def _amostra_produtos_reais(limite: int = 4) -> list[dict]:
+    """Produtos reais do catálogo para redirecionar quando o pedido não existe."""
+    if mercos_configurado():
+        try:
+            brutos = buscar_produtos_mercos()[:limite]
+            return [normalizar_produto(p) for p in brutos]
+        except Exception:
+            pass
+    return _filtrar_produtos_locais(buscar_produtos())[:limite]
+
+
 def _catalogo_completo_mercos() -> list[dict]:
     if not mercos_configurado():
         return []
@@ -284,13 +310,19 @@ def montar_contexto_catalogo(mensagem: str, historico_texto: str = "") -> dict:
 
     if not produtos:
         busca = " ".join(termos_cliente) if termos_cliente else mensagem.strip()
+        amostra = _amostra_produtos_reais()
         catalogo_texto = (
             f"Nenhum produto encontrado para: {busca or 'esta consulta'}.\n"
-            "O cliente pediu algo que NÃO está no catálogo.\n"
-            "NÃO ofereça produto aleatório ou de outra categoria.\n"
-            "Seja honesto, diga que não temos no momento e pergunte se quer "
-            "ver outra categoria do catálogo ou ser avisado quando chegar."
+            "A Xnamai NÃO vende esta categoria/produto — não está no catálogo.\n"
+            "PROIBIDO: perguntar cor, tamanho ou modelo desse item; prometer avisar quando chegar;\n"
+            "finja que temos essa linha em falta (ex.: 'não tenho vermelha' implica que vendemos toalha).\n"
+            "CORRETO: dizer que não trabalhamos com isso e, se fizer sentido, citar o que vendemos.\n"
         )
+        if amostra:
+            catalogo_texto += (
+                "\n=== O QUE VENDEMOS (cite só estes para redirecionar) ===\n"
+                + montar_catalogo_texto(amostra)
+            )
     else:
         catalogo_texto = montar_catalogo_texto(produtos)
         if similares:
@@ -317,4 +349,5 @@ def montar_contexto_catalogo(mensagem: str, historico_texto: str = "") -> dict:
         "consulta_especifica": consulta_especifica,
         "termos_cliente": termos_cliente,
         "sem_match": consulta_especifica and not produtos,
+        "amostra_disponivel": _amostra_produtos_reais() if consulta_especifica and not produtos else [],
     }

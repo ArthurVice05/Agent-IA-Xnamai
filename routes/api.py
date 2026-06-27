@@ -10,6 +10,7 @@ from services.openai_service import (
     resposta_saudacao,
     resposta_sem_foto,
 )
+from services.vendas.respostas import resposta_fora_catalogo
 from services.ultramsg_service import enviar_imagem, enviar_mensagem, ultramsg_configurado
 from services.produto_imagem_service import (
     cliente_pediu_foto,
@@ -273,6 +274,12 @@ def processar_mensagem(data: dict):
             fechamento or alteracao_pagamento or cliente_quer_novo_atendimento(mensagem)
         ):
             resposta_ia = resposta_pos_fechamento(nome_conversa)
+        elif contexto_venda.sem_match:
+            resposta_ia = resposta_fora_catalogo(
+                nome_cliente=nome_conversa,
+                termos=contexto_venda.termos_cliente,
+                amostra=contexto_venda.amostra_disponivel,
+            )
         else:
             resposta_ia = perguntar_ia(
                 mensagem=mensagem,

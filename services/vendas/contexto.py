@@ -28,7 +28,7 @@ class ContextoVenda:
     orientacao_objecao: str = ""
     briefing: str = ""
     sem_match: bool = False
-    termos_cliente: list = field(default_factory=list)
+    amostra_disponivel: list = field(default_factory=list)
 
 
 ESTAGIO_ORIENTACAO = {
@@ -116,9 +116,10 @@ def preparar_contexto_venda(
     if ctx_cat.get("sem_match"):
         busca = " ".join(ctx_cat.get("termos_cliente") or [])
         partes.append(
-            f"Cliente pediu '{busca}' e NÃO temos no catálogo. "
-            "Não empurre outro produto. Seja transparente e ofereça avisar quando chegar "
-            "ou mostrar o que temos SE o cliente quiser mudar de assunto."
+            f"Cliente pediu '{busca}' — categoria/produto INEXISTENTE no catálogo. "
+            "Não diga 'não tenho hoje' (isso sugere que vendemos). "
+            "Diga que NÃO TRABALHAMOS com isso. "
+            "Proibido perguntar cor, tamanho ou prometer avisar quando chegar."
         )
 
     briefing = "\n".join(p for p in partes if p)
@@ -140,4 +141,5 @@ def preparar_contexto_venda(
         briefing=briefing,
         sem_match=bool(ctx_cat.get("sem_match")),
         termos_cliente=ctx_cat.get("termos_cliente") or [],
+        amostra_disponivel=ctx_cat.get("amostra_disponivel") or [],
     )
