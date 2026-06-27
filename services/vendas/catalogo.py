@@ -75,6 +75,7 @@ def _deduplicar(produtos: list[dict]) -> list[dict]:
 TERMOS_ESTETICOS = {
     "vermelha", "vermelho", "azul", "preto", "branco", "rosa", "verde", "amarelo",
     "linda", "lindo", "bonita", "bonito", "fica", "ficou", "show", "perfeito",
+    "rosto", "banho", "conjunto", "queria", "quero", "pra", "pro",
 }
 
 

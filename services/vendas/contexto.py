@@ -28,6 +28,7 @@ class ContextoVenda:
     orientacao_objecao: str = ""
     briefing: str = ""
     sem_match: bool = False
+    termos_cliente: list = field(default_factory=list)
     amostra_disponivel: list = field(default_factory=list)
 
 
