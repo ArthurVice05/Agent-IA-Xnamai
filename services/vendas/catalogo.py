@@ -1,0 +1,282 @@
+import unicodedata
+
+from dotenv import load_dotenv
+
+from services.mercos_service import (
+    _extrair_termos,
+    buscar_produtos_mercos,
+    buscar_produtos_para_atendimento as buscar_mercos_por_mensagem,
+    mercos_configurado,
+    montar_catalogo_texto,
+    normalizar_produto,
+)
+from services.supabase_service import buscar_produtos
+
+load_dotenv(override=True)
+
+LIMITE_CATALOGO = 20
+
+PADROES_CATALOGO = (
+    r"o que (mais )?(voce|voces|vc|vcs) tem",
+    r"o que (voce|voces|vc|vcs) (tem|vende|oferece|oferecem)",
+    r"quais (produtos|opcoes|opções)",
+    r"(mostra|manda|passa|envia) (o )?(catalogo|produtos)",
+    r"catalogo|produtos disponiveis",
+    r"o que mais",
+    r"oferecer|oferece|oferecem",
+    r"tem ai|tem pra vender|tem disponivel",
+    r"lista de produtos",
+    r"me mostra",
+    r"conferiu|conferir|verificou|checou",
+    r"algo mais|mais alguma",
+    r"disponivel|estoque",
+)
+
+
+def _consulta_catalogo(mensagem: str) -> bool:
+    import re
+
+    texto = _normalizar(mensagem)
+    return any(re.search(padrao, texto) for padrao in PADROES_CATALOGO)
+
+COMPLEMENTOS_CATEGORIA = {
+    "fone": ("carregador", "cabo", "capa"),
+    "caixa": ("cabo", "carregador", "fone"),
+    "carregador": ("cabo", "fone"),
+    "cabo": ("carregador", "fone"),
+    "notebook": ("mouse", "carregador", "cabo"),
+    "celular": ("capa", "carregador", "fone"),
+    "smartwatch": ("carregador", "cabo"),
+}
+
+
+def _normalizar(texto: str) -> str:
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    return texto.lower()
+
+
+def _chave_produto(produto: dict) -> str:
+    return _normalizar(produto.get("nome") or "")
+
+
+def _deduplicar(produtos: list[dict]) -> list[dict]:
+    vistos: set[str] = set()
+    resultado = []
+    for produto in produtos:
+        chave = _chave_produto(produto)
+        if not chave or chave in vistos:
+            continue
+        vistos.add(chave)
+        resultado.append(produto)
+    return resultado
+
+
+def _termos_busca(mensagem: str, historico_texto: str = "") -> list[str]:
+    termos = _extrair_termos(mensagem)
+    if termos:
+        return termos
+
+    if historico_texto:
+        termos_hist = _extrair_termos(historico_texto)
+        if termos_hist:
+            return termos_hist[-5:]
+
+    return []
+
+
+def _buscar_mercos(mensagem: str, historico_texto: str = "") -> tuple[list[dict], str | None]:
+    if not mercos_configurado():
+        return [], "Mercos não configurada"
+
+    try:
+        if _consulta_catalogo(mensagem):
+            brutos = buscar_produtos_mercos()[:LIMITE_CATALOGO]
+            return [normalizar_produto(p) for p in brutos], None
+
+        termos = _termos_busca(mensagem, historico_texto)
+        if not termos:
+            return [], None
+
+        produtos = buscar_mercos_por_mensagem(mensagem)
+        if produtos:
+            return produtos, None
+
+        if historico_texto.strip():
+            produtos = buscar_mercos_por_mensagem(historico_texto)
+            if produtos:
+                return produtos, None
+
+        return [], None
+    except Exception as e:
+        return [], str(e)
+
+
+def _buscar_supabase(mensagem: str) -> list[dict]:
+    produtos = buscar_produtos()
+    if not produtos:
+        return []
+
+    termos = _extrair_termos(mensagem)
+    if not termos:
+        return produtos[:LIMITE_CATALOGO]
+
+    encontrados = []
+    for produto in produtos:
+        texto = " ".join(
+            str(produto.get(c, "") or "")
+            for c in ("nome", "codigo", "categoria", "descricao")
+        ).lower()
+        if any(t in texto for t in termos):
+            encontrados.append(produto)
+
+    return (encontrados or produtos)[:LIMITE_CATALOGO]
+
+
+def _categoria_chave(produto: dict) -> str:
+    cat = _normalizar(produto.get("categoria") or "")
+    nome = _normalizar(produto.get("nome") or "")
+
+    for chave in COMPLEMENTOS_CATEGORIA:
+        if chave in cat or chave in nome:
+            return chave
+    return cat or nome.split()[0] if nome else ""
+
+
+def _preco_float(produto: dict) -> float:
+    preco = produto.get("preco")
+    if preco in (None, ""):
+        return 0.0
+    try:
+        return float(str(preco).replace(",", "."))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _similares(produto_ref: dict, catalogo: list[dict], limite: int = 3) -> list[dict]:
+    cat_ref = _normalizar(produto_ref.get("categoria") or "")
+    nome_ref = _normalizar(produto_ref.get("nome") or "")
+    chave_ref = _chave_produto(produto_ref)
+
+    candidatos = []
+    for produto in catalogo:
+        if _chave_produto(produto) == chave_ref:
+            continue
+
+        cat = _normalizar(produto.get("categoria") or "")
+        nome = _normalizar(produto.get("nome") or "")
+
+        mesmo_grupo = (
+            (cat_ref and cat_ref in cat)
+            or (cat and cat in cat_ref)
+            or any(p in nome for p in _extrair_termos(nome_ref)[:2])
+        )
+        if mesmo_grupo:
+            candidatos.append(produto)
+
+    return _deduplicar(candidatos)[:limite]
+
+
+def _upsell(produto_ref: dict, catalogo: list[dict], limite: int = 2) -> list[dict]:
+    preco_ref = _preco_float(produto_ref)
+    if preco_ref <= 0:
+        return []
+
+    cat_ref = _categoria_chave(produto_ref)
+    candidatos = []
+
+    for produto in catalogo:
+        if _chave_produto(produto) == _chave_produto(produto_ref):
+            continue
+        if _categoria_chave(produto) != cat_ref:
+            continue
+        preco = _preco_float(produto)
+        if preco > preco_ref:
+            candidatos.append((preco, produto))
+
+    candidatos.sort(key=lambda x: x[0])
+    return [p for _, p in candidatos[:limite]]
+
+
+def _complementos(produto_ref: dict, catalogo: list[dict], limite: int = 2) -> list[dict]:
+    chave_cat = _categoria_chave(produto_ref)
+    termos_comp = COMPLEMENTOS_CATEGORIA.get(chave_cat, ())
+
+    if not termos_comp:
+        return []
+
+    chave_ref = _chave_produto(produto_ref)
+    candidatos = []
+
+    for produto in catalogo:
+        if _chave_produto(produto) == chave_ref:
+            continue
+        texto = _normalizar(
+            f"{produto.get('nome', '')} {produto.get('categoria', '')}"
+        )
+        if any(t in texto for t in termos_comp):
+            candidatos.append(produto)
+
+    return _deduplicar(candidatos)[:limite]
+
+
+def _catalogo_completo_mercos() -> list[dict]:
+    if not mercos_configurado():
+        return []
+    try:
+        return [normalizar_produto(p) for p in buscar_produtos_mercos()]
+    except Exception:
+        return []
+
+
+def montar_contexto_catalogo(mensagem: str, historico_texto: str = "") -> dict:
+    """Consulta Mercos primeiro; Supabase só como fallback."""
+    produtos, erro_mercos = _buscar_mercos(mensagem, historico_texto)
+    fonte = "mercos" if produtos else ""
+
+    if not produtos:
+        produtos = _buscar_supabase(mensagem)
+        if produtos:
+            fonte = "supabase"
+
+    produtos = _deduplicar(produtos)[:LIMITE_CATALOGO]
+    catalogo_base = _catalogo_completo_mercos() or buscar_produtos()
+
+    principal = produtos[0] if produtos else None
+    similares: list[dict] = []
+    upsell: list[dict] = []
+    complementos: list[dict] = []
+
+    if principal and catalogo_base:
+        similares = _similares(principal, catalogo_base)
+        upsell = _upsell(principal, catalogo_base)
+        complementos = _complementos(principal, catalogo_base)
+
+    def bloco(titulo: str, itens: list[dict]) -> str:
+        if not itens:
+            return ""
+        return f"\n=== {titulo} ===\n{montar_catalogo_texto(itens)}"
+
+    catalogo_texto = montar_catalogo_texto(produtos)
+    if similares:
+        catalogo_texto += bloco("OPÇÕES SEMELHANTES (só se fizer sentido mencionar)", similares)
+    if upsell:
+        catalogo_texto += bloco("UPSELL — versão superior (mencione só com interesse claro)", upsell)
+    if complementos:
+        catalogo_texto += bloco("COMPLEMENTOS — cross-sell natural (opcional)", complementos)
+
+    if not produtos:
+        catalogo_texto = (
+            "Nenhum produto encontrado no catálogo Mercos/Supabase para esta consulta.\n"
+            "Não invente produtos. Pergunte o que o cliente procura ou sugira categoria."
+        )
+
+    return {
+        "produtos": produtos,
+        "similares": similares,
+        "upsell": upsell,
+        "complementos": complementos,
+        "catalogo": catalogo_texto,
+        "fonte": fonte or "nenhum",
+        "erro_mercos": erro_mercos,
+    }

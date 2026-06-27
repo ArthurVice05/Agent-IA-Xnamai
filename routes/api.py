@@ -33,10 +33,10 @@ from services.produtos_service import (
     buscar_produtos_para_atendimento,
     eh_saudacao,
 )
+from services.vendas.contexto import preparar_contexto_venda
 from services.mercos_service import (
     mercos_ambiente_sandbox,
     mercos_configurado,
-    montar_catalogo_texto,
 )
 from services.pedido_mercos_service import mercos_criar_pedido_habilitado
 from services.supabase_service import (
@@ -160,28 +160,35 @@ def processar_mensagem(data: dict):
             if saudacao:
                 saudacao = False
 
-        if fechamento or alteracao_pagamento or saudacao:
-            produtos = []
-            catalogo = ""
-            resultado_produtos = {"fonte": "", "erro_mercos": None}
-        else:
-            resultado_produtos = buscar_produtos_para_atendimento(mensagem)
-            produtos = resultado_produtos["produtos"]
+        pedido_encerrado = pedido_ja_encerrado(ultima_resposta_ia, historico_texto)
+        pular_catalogo = fechamento or alteracao_pagamento or saudacao
 
-            if cliente_pediu_foto(mensagem) and not produtos:
-                busca_historico = extrair_busca_do_historico(historico_texto)
-                if busca_historico.strip():
-                    resultado_produtos = buscar_produtos_para_atendimento(busca_historico)
-                    produtos = resultado_produtos["produtos"]
+        contexto_venda = preparar_contexto_venda(
+            mensagem=mensagem,
+            historico_texto=historico_texto,
+            pedido_encerrado=pedido_encerrado,
+            pular_catalogo=pular_catalogo,
+        )
 
-            catalogo = montar_catalogo_texto(produtos[:8])
+        if not pular_catalogo and cliente_pediu_foto(mensagem) and not contexto_venda.produtos:
+            busca_historico = extrair_busca_do_historico(historico_texto)
+            if busca_historico.strip():
+                contexto_venda = preparar_contexto_venda(
+                    mensagem=busca_historico,
+                    historico_texto=historico_texto,
+                    pedido_encerrado=pedido_encerrado,
+                )
 
+        produtos = contexto_venda.produtos
+        catalogo = contexto_venda.catalogo
+
+        if not pular_catalogo:
             print("================================")
-            print("FONTE PRODUTOS:", resultado_produtos["fonte"])
-            if resultado_produtos["erro_mercos"]:
-                print("MERCOS INDISPONIVEL:", resultado_produtos["erro_mercos"])
-            print("PRODUTOS ENCONTRADOS:")
-            print(produtos)
+            print("ESTAGIO VENDA:", contexto_venda.estagio)
+            print("FONTE PRODUTOS:", contexto_venda.fonte)
+            if contexto_venda.erro_mercos:
+                print("MERCOS INDISPONIVEL:", contexto_venda.erro_mercos)
+            print("PRODUTOS ENCONTRADOS:", produtos)
             print("================================")
 
         # =========================
@@ -274,6 +281,7 @@ def processar_mensagem(data: dict):
                 nome_cliente=nome_conversa,
                 ultima_resposta_ia=ultima_resposta_ia,
                 foto_automatica=bool(com_foto and pediu_foto),
+                contexto_venda=contexto_venda,
             )
 
         print("RESPOSTA IA:")
@@ -342,6 +350,7 @@ async def status():
         "mercos_sandbox": mercos_ambiente_sandbox(),
         "mercos_criar_pedido": mercos_criar_pedido_habilitado(),
         "mercos_base_url": os.getenv("MERCOS_BASE_URL", ""),
+        "vendas_consultivas": True,
     }
 
 
@@ -363,20 +372,25 @@ async def sync_produtos(token: str = ""):
 
 @router.get("/teste-produtos")
 async def teste_produtos(q: str = ""):
-    """Testa busca de produtos (Mercos ou Supabase)."""
+    """Testa busca de produtos (Mercos primeiro, Supabase fallback)."""
     try:
+        from services.vendas.contexto import preparar_contexto_venda
+
         mensagem = q or "produto"
-        resultado = buscar_produtos_para_atendimento(mensagem)
-        produtos = resultado["produtos"]
+        ctx = preparar_contexto_venda(mensagem)
 
         return {
             "status": "ok",
-            "fonte": resultado["fonte"],
+            "fonte": ctx.fonte,
+            "estagio": ctx.estagio,
             "busca": mensagem,
-            "total": len(produtos),
-            "produtos": produtos,
-            "catalogo": montar_catalogo_texto(produtos),
-            "erro_mercos": resultado["erro_mercos"],
+            "total": len(ctx.produtos),
+            "produtos": ctx.produtos,
+            "similares": ctx.similares,
+            "upsell": ctx.upsell,
+            "complementos": ctx.complementos,
+            "catalogo": ctx.catalogo,
+            "erro_mercos": ctx.erro_mercos,
         }
     except Exception as e:
         return {

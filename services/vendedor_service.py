@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
+from services.vendas.analise import detectar_intencao_compra
 from services.supabase_service import buscar_lead, criar_lead
 from services.ultramsg_service import enviar_mensagem
 
@@ -19,26 +20,7 @@ INTERESSES_PRODUTO = (
     "tablet",
     "fone",
     "vinho",
-)
-
-PALAVRAS_COMPRA = (
-    "quero comprar",
-    "vou comprar",
-    "fechar pedido",
-    "finalizar pedido",
-    "separar pra mim",
-    "separa pra mim",
-    "separar para mim",
-    "separa para mim",
-    "quero fechar",
-    "pode separar",
-    "manda o pix",
-    "forma de pagamento",
-    "como pago",
-    "quanto fica",
-    "fazer pedido",
-    "confirmo a compra",
-    "pode mandar",
+    "perfume",
 )
 
 
@@ -49,9 +31,8 @@ def vendedor_configurado() -> bool:
 def detectar_interesse(mensagem: str) -> str | None:
     texto = mensagem.lower()
 
-    for palavra in PALAVRAS_COMPRA:
-        if palavra in texto:
-            return "intencao de compra"
+    if detectar_intencao_compra(mensagem):
+        return "intencao de compra"
 
     for palavra in INTERESSES_PRODUTO:
         if palavra in texto:
@@ -79,7 +60,7 @@ def _montar_mensagem_vendedor(
         f"*{titulo} — Xnamai*\n\n"
         f"Cliente: {nome}\n"
         f"WhatsApp: {numero_cliente}\n\n"
-        f"Mensagem:\n\"{mensagem_cliente}\"\n\n"
+        f'Mensagem:\n"{mensagem_cliente}"\n\n'
         f"Chamar: {link_wa}"
     )
 

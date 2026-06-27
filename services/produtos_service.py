@@ -1,53 +1,4 @@
-import os
-import re
-import unicodedata
-
-from dotenv import load_dotenv
-
-from services.mercos_service import (
-    _extrair_termos,
-    buscar_produtos_mercos as listar_todos_mercos,
-    buscar_produtos_para_atendimento as buscar_produtos_mercos,
-    mercos_configurado,
-    montar_catalogo_texto,
-    normalizar_produto,
-)
-from services.supabase_service import buscar_produtos
-
-load_dotenv(override=True)
-
-LIMITE_CATALOGO = 20
-
-PADROES_CATALOGO = (
-    r"o que (mais )?(voce|voces|vc|vcs) tem",
-    r"o que (voce|voces|vc|vcs) (tem|vende|oferece|oferecem)",
-    r"quais (produtos|opcoes|opções)",
-    r"(mostra|manda|passa|envia) (o )?(catalogo|produtos)",
-    r"catalogo|produtos disponiveis",
-    r"o que mais",
-    r"oferecer|oferece|oferecem",
-    r"tem ai|tem pra vender|tem disponivel",
-    r"lista de produtos",
-    r"me mostra",
-    r"conferiu|conferir|verificou|checou",
-    r"algo mais|mais alguma",
-    r"disponivel|estoque",
-)
-
-
-def _fonte_configurada() -> str:
-    return os.getenv("PRODUTOS_FONTE", "auto").strip().lower()
-
-
-def _normalizar_texto(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", texto)
-    texto = "".join(c for c in texto if not unicodedata.combining(c))
-    return texto.lower()
-
-
-PADROES_SAUDACAO = (
-    r"^(oi|ola|olá|hey|eae|e ai|eai|bom dia|boa tarde|boa noite|hello|hi)\b",
-)
+from services.vendas.catalogo import LIMITE_CATALOGO, montar_contexto_catalogo
 
 
 def eh_saudacao(mensagem: str, historico_texto: str = "") -> bool:
@@ -56,112 +7,15 @@ def eh_saudacao(mensagem: str, historico_texto: str = "") -> bool:
     return eh_saudacao_inicial(mensagem, historico_texto)
 
 
-def _catalogo_inicial() -> tuple[list[dict], str, str | None]:
-    fonte = _fonte_configurada()
-    erro_mercos = None
-
-    if fonte == "supabase":
-        produtos = buscar_produtos()[:LIMITE_CATALOGO]
-        return produtos, "supabase", None
-
-    if fonte in ("mercos", "auto") and mercos_configurado():
-        try:
-            produtos = [
-                normalizar_produto(p)
-                for p in listar_todos_mercos()[:LIMITE_CATALOGO]
-            ]
-            if produtos:
-                return produtos, "mercos", None
-        except Exception as e:
-            erro_mercos = str(e)
-            if fonte == "mercos":
-                raise
-
-    produtos = buscar_produtos()[:LIMITE_CATALOGO]
-    return produtos, "supabase", erro_mercos
-
-
-def _consulta_catalogo(mensagem: str) -> bool:
-    texto = _normalizar_texto(mensagem)
-    return any(re.search(padrao, texto) for padrao in PADROES_CATALOGO)
-
-
-def _filtrar_produtos(produtos: list[dict], mensagem: str) -> list[dict]:
-    termos = _extrair_termos(mensagem)
-
-    if not termos:
-        return produtos[:LIMITE_CATALOGO]
-
-    encontrados = []
-    for produto in produtos:
-        texto = " ".join(
-            str(produto.get(campo, "") or "")
-            for campo in ("nome", "codigo", "categoria", "descricao")
-        ).lower()
-
-        if any(termo in texto for termo in termos):
-            encontrados.append(produto)
-
-    return encontrados[:LIMITE_CATALOGO]
-
-
-def _buscar_supabase(mensagem: str) -> list[dict]:
-    produtos = buscar_produtos()
-    if not produtos:
-        return []
-
-    if _consulta_catalogo(mensagem):
-        return produtos[:LIMITE_CATALOGO]
-
-    termos = _extrair_termos(mensagem)
-    if not termos:
-        return []
-
-    filtrados = _filtrar_produtos(produtos, mensagem)
-    if filtrados:
-        return filtrados
-
-    return produtos[:LIMITE_CATALOGO]
-
-
-def buscar_produtos_para_atendimento(mensagem: str) -> dict:
-    fonte = _fonte_configurada()
-    erro_mercos = None
-
-    if _consulta_catalogo(mensagem):
-        produtos, fonte_cat, erro_mercos = _catalogo_inicial()
-        return {
-            "produtos": produtos,
-            "fonte": fonte_cat,
-            "erro_mercos": erro_mercos,
-        }
-
-    termos = _extrair_termos(mensagem)
-    if not termos:
-        produtos, fonte_cat, erro_mercos = _catalogo_inicial()
-        return {
-            "produtos": produtos,
-            "fonte": fonte_cat,
-            "erro_mercos": erro_mercos,
-        }
-
-    if fonte in ("mercos", "auto"):
-        try:
-            produtos = buscar_produtos_mercos(mensagem)
-            if produtos:
-                return {
-                    "produtos": produtos,
-                    "fonte": "mercos",
-                    "erro_mercos": None,
-                }
-        except Exception as e:
-            erro_mercos = str(e)
-            if fonte == "mercos":
-                raise
-
-    produtos = _buscar_supabase(mensagem)
+def buscar_produtos_para_atendimento(mensagem: str, historico_texto: str = "") -> dict:
+    """Mercos primeiro; Supabase como fallback. Usado em testes e fechamento."""
+    ctx = montar_contexto_catalogo(mensagem, historico_texto)
     return {
-        "produtos": produtos,
-        "fonte": "supabase",
-        "erro_mercos": erro_mercos,
+        "produtos": ctx["produtos"],
+        "similares": ctx["similares"],
+        "upsell": ctx["upsell"],
+        "complementos": ctx["complementos"],
+        "fonte": ctx["fonte"],
+        "erro_mercos": ctx["erro_mercos"],
+        "catalogo": ctx["catalogo"],
     }
