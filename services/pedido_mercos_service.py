@@ -34,7 +34,10 @@ def mercos_criar_pedido_habilitado() -> bool:
 
 
 def pedido_mercos_ja_registrado(ultima_resposta_ia: str) -> bool:
-    return bool(ultima_resposta_ia and "Pedido Mercos #" in ultima_resposta_ia)
+    if not ultima_resposta_ia:
+        return False
+    ultima = ultima_resposta_ia.lower()
+    return "pedido mercos #" in ultima or "pedido registrado" in ultima
 
 
 def _mapear_condicao_pagamento(pagamento: str) -> str:

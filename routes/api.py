@@ -19,11 +19,16 @@ from services.produto_imagem_service import (
 )
 
 from services.conversa_service import (
+    cliente_quer_novo_atendimento,
     eh_alteracao_pagamento,
     eh_confirmacao_fechamento,
     extrair_nome_do_historico,
+    historico_recente,
+    pedido_ja_encerrado,
     resposta_fechamento_pedido,
+    resposta_pos_fechamento,
 )
+from services.webhook_service import evento_deve_ser_ignorado, marcar_evento_processado
 from services.produtos_service import (
     buscar_produtos_para_atendimento,
     eh_saudacao,
@@ -59,6 +64,11 @@ def processar_mensagem(data: dict):
 
         if "data" not in data:
             print("EVENTO IGNORADO:", data)
+            return
+
+        ignorar, motivo = evento_deve_ser_ignorado(data)
+        if ignorar:
+            print("WEBHOOK IGNORADO:", motivo)
             return
 
         evento = data["data"]
@@ -143,6 +153,12 @@ def processar_mensagem(data: dict):
         )
         alteracao_pagamento = eh_alteracao_pagamento(mensagem, historico_texto)
         saudacao = eh_saudacao(mensagem, historico_texto)
+
+        if pedido_ja_encerrado(ultima_resposta_ia, historico_texto):
+            if fechamento and not alteracao_pagamento:
+                fechamento = False
+            if saudacao:
+                saudacao = False
 
         if fechamento or alteracao_pagamento or saudacao:
             produtos = []
@@ -246,11 +262,15 @@ def processar_mensagem(data: dict):
             resposta_ia = resposta_ja_informado(com_foto[0])
         elif pediu_foto and com_foto:
             resposta_ia = resposta_com_foto(com_foto[0])
+        elif pedido_ja_encerrado(ultima_resposta_ia, historico_texto) and not (
+            fechamento or alteracao_pagamento or cliente_quer_novo_atendimento(mensagem)
+        ):
+            resposta_ia = resposta_pos_fechamento(nome_conversa)
         else:
             resposta_ia = perguntar_ia(
                 mensagem=mensagem,
                 catalogo=catalogo,
-                historico_texto=historico_texto,
+                historico_texto=historico_recente(historico_texto),
                 nome_cliente=nome_conversa,
                 ultima_resposta_ia=ultima_resposta_ia,
                 foto_automatica=bool(com_foto and pediu_foto),
@@ -286,6 +306,7 @@ def processar_mensagem(data: dict):
                 print(f"FOTOS ENVIADAS: {fotos_enviadas}")
 
         print("PROCESSAMENTO CONCLUIDO")
+        marcar_evento_processado(data)
 
     except Exception as e:
 

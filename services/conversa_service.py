@@ -243,6 +243,51 @@ def eh_alteracao_pagamento(mensagem: str, historico_texto: str) -> bool:
     return any(indicio in historico for indicio in INDICIOS_FECHAMENTO)
 
 
+def pedido_ja_encerrado(ultima_resposta_ia: str, historico_texto: str = "") -> bool:
+    if ultima_resposta_ia and "pedido registrado" in ultima_resposta_ia.lower():
+        return True
+
+    for linha in reversed(historico_texto.split("\n")):
+        if not linha.startswith("IA:"):
+            continue
+        if "pedido registrado" in linha.lower():
+            return True
+
+    return False
+
+
+def cliente_quer_novo_atendimento(mensagem: str) -> bool:
+    texto = _normalizar(mensagem)
+    indicadores = (
+        "quero",
+        "preciso",
+        "comprar",
+        "catalogo",
+        "produto",
+        "tem ",
+        "mostra",
+        "preco",
+        "novo pedido",
+        "outro",
+    )
+    return any(ind in texto for ind in indicadores)
+
+
+def resposta_pos_fechamento(nome: str = "") -> str:
+    tratamento = nome or "Cliente"
+    return (
+        f"Oi, {tratamento}! Seu pedido já está registrado e nossa equipe "
+        "finaliza com você em breve. Precisa de algo mais?"
+    )
+
+
+def historico_recente(historico_texto: str, max_linhas: int = 24) -> str:
+    linhas = [l for l in historico_texto.split("\n") if l.strip()]
+    if len(linhas) <= max_linhas:
+        return historico_texto
+    return "\n".join(linhas[-max_linhas:])
+
+
 def _extrair_preco_historico(historico_texto: str) -> float | None:
     precos = re.findall(r"r\$\s*([\d.,]+)", historico_texto.lower())
     if not precos:
